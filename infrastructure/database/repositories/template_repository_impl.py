@@ -62,7 +62,7 @@ class TemplateRepositoryImpl(TemplateRepository):
             await session.commit()
             return template
     
-    async def _to_entity(self, model: DocumentTemplateModel) -> DocumentTemplate:
+    def _to_entity(self, model: DocumentTemplateModel) -> DocumentTemplate:
         return DocumentTemplate(
             id=model.id,
             name=model.name,

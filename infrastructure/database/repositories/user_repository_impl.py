@@ -81,7 +81,7 @@ class UserRepositoryImpl(UserRepository):
             await session.execute(stmt)
             await session.commit()
     
-    async def _to_entity(self, model: UserModel) -> User:
+    def _to_entity(self, model: UserModel) -> User:
         return User(
             id=model.id,
             telegram_id=model.telegram_id,

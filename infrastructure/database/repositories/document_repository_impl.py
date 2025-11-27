@@ -85,7 +85,7 @@ class DocumentRepositoryImpl(DocumentRepository):
                 return True
             return False
     
-    async def _to_entity(self, model: DocumentModel) -> Document:
+    def _to_entity(self, model: DocumentModel) -> Document:
         return Document(
             id=model.id,
             title=model.title,

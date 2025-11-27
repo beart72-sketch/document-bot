@@ -26,7 +26,7 @@ class Document:
     status: DocumentStatus = DocumentStatus.DRAFT
     user_id: Optional[str] = None
     template_id: Optional[str] = None
-    document_metadata: Dict[str, Any] = field(default_factory=dict)  # Возвращаем document_metadata
+    document_metadata: Dict[str, Any] = field(default_factory=dict)
     variables: Dict[str, Any] = field(default_factory=dict)
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
