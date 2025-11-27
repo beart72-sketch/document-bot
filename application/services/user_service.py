@@ -34,5 +34,4 @@ class UserService:
         """Обновляет активность пользователя"""
         user = await self.user_repo.get_by_telegram_id(telegram_id)
         if user:
-            # Обновляем время активности через репозиторий
             await self.user_repo.update_activity(user.id)

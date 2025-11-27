@@ -283,7 +283,7 @@ class BotFacade:
         """Возвращает читаемое название статуса"""
         status_names = {
             'draft': 'Черновик',
-            'in_progress': 'В работе'
+            'in_progress': 'В работе',
             'completed': 'Завершен',
             'archived': 'В архиве'
         }
