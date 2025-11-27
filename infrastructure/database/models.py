@@ -1,72 +1,67 @@
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import String, DateTime, Text, Integer, BigInteger, Boolean, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, JSON, Enum as SQLEnum
+from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
-from typing import Optional, Dict, Any
-import uuid
+import enum
 
-class Base(DeclarativeBase):
-    pass
+Base = declarative_base()
+
+class DocumentStatus(enum.Enum):
+    DRAFT = "draft"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    ARCHIVED = "archived"
+
+class DocumentType(enum.Enum):
+    CLAIM = "claim"
+    CONTRACT = "contract"
+    COMPLAINT = "complaint"
+    MOTION = "motion"
 
 class UserModel(Base):
     __tablename__ = "users"
     
-    id: Mapped[str] = mapped_column(primary_key=True, default=lambda: str(uuid.uuid4()))
-    telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True, nullable=False)
-    username: Mapped[Optional[str]] = mapped_column(String(100))
-    first_name: Mapped[Optional[str]] = mapped_column(String(100))
-    last_name: Mapped[Optional[str]] = mapped_column(String(100))
-    email: Mapped[Optional[str]] = mapped_column(String(255))
-    role: Mapped[str] = mapped_column(String(50), default="user")
-    subscription_type: Mapped[str] = mapped_column(String(50), default="free")
-    subscription_start: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    subscription_end: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    is_subscription_active: Mapped[bool] = mapped_column(Boolean, default=False)
-    settings: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
-    last_activity: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Связи
-    documents: Mapped[list["DocumentModel"]] = relationship("DocumentModel", back_populates="user")
-
-class DocumentTemplateModel(Base):
-    __tablename__ = "document_templates"
-    
-    id: Mapped[str] = mapped_column(primary_key=True, default=lambda: str(uuid.uuid4()))
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str] = mapped_column(Text)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-    document_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    variables_schema: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
-    required_variables: Mapped[list] = mapped_column(JSON, default=list)
-    category: Mapped[str] = mapped_column(String(100), default="general")
-    version: Mapped[str] = mapped_column(String(20), default="1.0")
-    is_active: Mapped[bool] = mapped_column(default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Связи
-    documents: Mapped[list["DocumentModel"]] = relationship("DocumentModel", back_populates="template")
+    id = Column(String, primary_key=True)
+    telegram_id = Column(Integer, unique=True, index=True)
+    username = Column(String(100))
+    first_name = Column(String(100))
+    last_name = Column(String(100))
+    email = Column(String(255))
+    role = Column(String(50), default="user")
+    subscription_type = Column(String(50), default="free")
+    subscription_start = Column(DateTime)
+    subscription_end = Column(DateTime)
+    is_subscription_active = Column(Boolean, default=False)
+    settings = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class DocumentModel(Base):
     __tablename__ = "documents"
     
-    id: Mapped[str] = mapped_column(primary_key=True, default=lambda: str(uuid.uuid4()))
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-    document_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default="draft")
+    id = Column(String, primary_key=True)
+    title = Column(String(255))
+    content = Column(Text)
+    document_type = Column(SQLEnum(DocumentType))
+    status = Column(SQLEnum(DocumentStatus), default=DocumentStatus.DRAFT)
+    user_id = Column(String, index=True)
+    template_id = Column(String)
+    document_metadata = Column(JSON)  # Изменяем с metadata на document_metadata
+    variables = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class DocumentTemplateModel(Base):
+    __tablename__ = "document_templates"
     
-    # Внешние ключи
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
-    template_id: Mapped[Optional[str]] = mapped_column(ForeignKey("document_templates.id"))
-    
-    # Метаданные (переименовано из metadata в metadata)
-    metadata: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
-    variables: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Связи
-    user: Mapped["UserModel"] = relationship("UserModel", back_populates="documents")
-    template: Mapped[Optional["DocumentTemplateModel"]] = relationship("DocumentTemplateModel", back_populates="documents")
+    id = Column(String, primary_key=True)
+    name = Column(String(255))
+    description = Column(Text)
+    content = Column(Text)
+    document_type = Column(String(100))
+    variables_schema = Column(JSON)
+    required_variables = Column(JSON)
+    category = Column(String(100), default="general")
+    version = Column(String(50), default="1.0")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
