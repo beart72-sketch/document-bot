@@ -1,6 +1,5 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from core.config import config
-from .models import Base
+from .base import Base  # Импортируем Base из нового файла
 
 class Database:
     def __init__(self):
@@ -10,7 +9,7 @@ class Database:
     async def initialize(self):
         """Инициализация базы данных"""
         # Используем SQLite для простоты
-        database_url = "sqlite+aiosqlite:///document_bot.db"
+        database_url = "sqlite+aiosqlite:///legal_bot.db"
         
         self.engine = create_async_engine(
             database_url,
