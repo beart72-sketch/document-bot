@@ -16,7 +16,7 @@ class DocumentService:
         if not user:
             raise ValueError(f"Пользователь с telegram_id {user_telegram_id} не найден")
         
-        # Создаем документ БЕЗ параметра metadata
+        # Создаем документ
         document = Document(
             title=title,
             content=content,
