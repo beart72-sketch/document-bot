@@ -1,38 +1,30 @@
-#!/usr/bin/env python3
-"""
-Professional Telegram Bot Module
-"""
 import asyncio
+import logging
 from telebot.async_telebot import AsyncTeleBot
-from core.config import load_config
+from telebot.asyncio_helper import ApiException
+from core.config import config
 from core.service_locator import service_locator
-from domain.services.menu_service import MenuService
-from presentation.telegram.keyboards.main_keyboards import MainKeyboards
 from presentation.telegram.facades.bot_facade import BotFacade
 
+logger = logging.getLogger(__name__)
+
 class TelegramBot:
-    """Профессиональная реализация Telegram бота"""
-    
     def __init__(self):
-        self.config = load_config()
-        self.bot = AsyncTeleBot(self.config.bot_token)
-        
-        # Инициализация сервисов
-        self.menu_service = MenuService()
-        self.keyboards = MainKeyboards(self.menu_service)
+        self.bot = AsyncTeleBot(config.telegram.bot_token)
         self.user_service = None
         self.document_service = None
-        
-        # Фасад для обработки сообщений
-        self.facade = None
-        
-        self._register_handlers()
+        self.menu_service = None
+        self.keyboards = None
+        self.bot_facade = None
     
     async def initialize_services(self):
-        """Асинхронная инициализация сервисов"""
+        """Инициализация сервисов"""
         self.user_service = await service_locator.get_user_service()
         self.document_service = await service_locator.get_document_service()
-        self.facade = BotFacade(
+        self.menu_service = await service_locator.get_menu_service()
+        self.keyboards = service_locator.get_keyboards()
+        
+        self.bot_facade = BotFacade(
             bot=self.bot,
             user_service=self.user_service,
             document_service=self.document_service,
@@ -40,66 +32,52 @@ class TelegramBot:
             keyboards=self.keyboards
         )
     
-    def _register_handlers(self):
-        """Регистрация обработчиков сообщений"""
+    async def _initialize(self):
+        """Инициализация бота"""
+        await self.initialize_services()
+        self._setup_handlers()
+    
+    def _setup_handlers(self):
+        """Настройка обработчиков"""
+        # Команды
+        self.bot.message_handler(commands=['start'])(self.bot_facade.handle_start)
+        self.bot.message_handler(commands=['help'])(self.bot_facade.handle_help)
         
-        @self.bot.message_handler(commands=['start'])
-        async def handle_start(message):
-            await self.facade.handle_start(message)
-        
-        @self.bot.message_handler(func=lambda message: True)
-        async def handle_all_messages(message):
-            await self.facade.handle_message(message)
+        # Текстовые сообщения
+        self.bot.message_handler(func=lambda message: True)(self.bot_facade.handle_message)
     
     async def run(self):
         """Запуск бота"""
         try:
             await self._initialize()
-            await self._start_polling()
-            
+            logger.info("🤖 Бот запускается...")
+            await self.bot.infinity_polling()
         except Exception as e:
             await self._handle_error(e)
     
-    async def _initialize(self):
-        """Инициализация приложения"""
-        database = await service_locator.get_database()
-        
-        print(f"🔑 Токен: {self.config.bot_token[:10]}...")
-        print(f"🤖 Бот: @Sud_keis_bot")
-        print(f"🔗 Ссылка: https://t.me/Sud_keis_bot")
-        
-        # Проверка подключения к базе данных
-        if await database.health_check():
-            print("✅ Подключение к базе данных установлено")
-        else:
-            raise Exception("❌ Ошибка подключения к базе данных")
-        
-        # Создание таблиц
-        await database.create_tables()
-        print("✅ Таблицы базы данных проверены/созданы")
-        
-        # Инициализация сервисов
-        await self.initialize_services()
-        print("✅ Сервисы инициализированы")
-        
-        print("🤖 Бот запускается...")
-        print("📱 Откройте Telegram и напишите боту @Sud_keis_bot")
-    
-    async def _start_polling(self):
-        """Запуск опроса Telegram API"""
-        await self.bot.polling(non_stop=True)
-    
     async def _handle_error(self, error: Exception):
         """Обработка ошибок"""
-        print(f"❌ Критическая ошибка при запуске бота: {error}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"❌ Критическая ошибка при запуске бота: {error}")
         raise error
 
 async def run_bot():
-    """Точка входа для запуска бота"""
-    bot = TelegramBot()
-    await bot.run()
-
-if __name__ == "__main__":
-    asyncio.run(run_bot())
+    """Основная функция запуска бота"""
+    try:
+        # Инициализируем сервис локатор
+        await service_locator.initialize()
+        
+        # Создаем и запускаем бота
+        bot = TelegramBot()
+        await bot.run()
+        
+    except ApiException as e:
+        if "Forbidden" in str(e):
+            logger.error("❌ Бот заблокирован пользователем или не активирован")
+        else:
+            logger.error(f"❌ Ошибка Telegram API: {e}")
+    except Exception as e:
+        logger.error(f"❌ Неожиданная ошибка: {e}")
+        raise
+    finally:
+        # Закрываем соединения
+        await service_locator.close()

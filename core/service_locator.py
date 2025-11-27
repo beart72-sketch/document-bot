@@ -30,7 +30,7 @@ class ServiceLocator:
         self._user_service = UserService(user_repo)
         self._document_service = DocumentService(document_repo, user_repo)
         self._menu_service = MenuService()
-        self._keyboards = MainKeyboards()
+        self._keyboards = MainKeyboards(self._menu_service)  # Передаем menu_service
     
     async def get_user_service(self) -> UserService:
         if self._user_service is None:
@@ -49,7 +49,7 @@ class ServiceLocator:
     
     def get_keyboards(self) -> MainKeyboards:
         if self._keyboards is None:
-            self._keyboards = MainKeyboards()
+            self._keyboards = MainKeyboards(self._menu_service)
         return self._keyboards
     
     async def close(self):
