@@ -1,72 +1,46 @@
-"""
-Database Manager for Legal Bot
-"""
-import sqlite3
-import logging
-from typing import Optional, List, Dict, Any
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy import text
+from core.config import load_config
+from infrastructure.database.models import Base
 
-class DatabaseManager:
-    def __init__(self, db_name: str):
-        self.db_name = db_name
-        self.init_database()
+class Database:
+    """Асинхронная база данных SQLAlchemy 2.0+"""
     
-    def init_database(self):
-        """Инициализация базы данных"""
-        try:
-            with sqlite3.connect(self.db_name) as conn:
-                cursor = conn.cursor()
-                
-                # Таблица пользователей
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS users (
-                        user_id INTEGER PRIMARY KEY,
-                        username TEXT,
-                        first_name TEXT,
-                        last_name TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                ''')
-                
-                # Таблица запросов анализа
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS analysis_requests (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER,
-                        document_text TEXT,
-                        analysis_result TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES users (user_id)
-                    )
-                ''')
-                
-                conn.commit()
-                logging.info("Database initialized successfully")
-                
-        except sqlite3.Error as e:
-            logging.error(f"Database initialization error: {e}")
+    def __init__(self):
+        self.config = load_config()
+        self.engine = create_async_engine(
+            self.config.database_url,
+            echo=self.config.database_echo,
+            pool_pre_ping=self.config.database_pool_pre_ping
+        )
+        self.async_session_maker = async_sessionmaker(
+            self.engine,
+            class_=AsyncSession,
+            expire_on_commit=False
+        )
     
-    def add_user(self, user_id: int, username: str = None, first_name: str = None, last_name: str = None):
-        """Добавление пользователя в базу"""
-        try:
-            with sqlite3.connect(self.db_name) as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    INSERT OR REPLACE INTO users (user_id, username, first_name, last_name)
-                    VALUES (?, ?, ?, ?)
-                ''', (user_id, username, first_name, last_name))
-                conn.commit()
-        except sqlite3.Error as e:
-            logging.error(f"Error adding user: {e}")
+    async def create_tables(self):
+        """Создает все таблицы в базе данных"""
+        async with self.engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
     
-    def save_analysis_request(self, user_id: int, document_text: str, analysis_result: str):
-        """Сохранение запроса анализа"""
+    async def drop_tables(self):
+        """Удаляет все таблицы из базы данных"""
+        async with self.engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+    
+    async def get_session(self) -> AsyncSession:
+        """Возвращает асинхронную сессию"""
+        return self.async_session_maker()
+    
+    async def health_check(self) -> bool:
+        """Проверяет подключение к базе данных"""
         try:
-            with sqlite3.connect(self.db_name) as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    INSERT INTO analysis_requests (user_id, document_text, analysis_result)
-                    VALUES (?, ?, ?)
-                ''', (user_id, document_text, analysis_result))
-                conn.commit()
-        except sqlite3.Error as e:
-            logging.error(f"Error saving analysis request: {e}")
+            async with self.engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+            return True
+        except Exception:
+            return False
+
+# Глобальный экземпляр для обратной совместимости
+database = Database()
