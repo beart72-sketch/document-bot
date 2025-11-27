@@ -1,12 +1,14 @@
 from typing import Optional
 from domain.entities.user import User
 from domain.repositories.user_repository import UserRepository
+from application.services.subscription_service import SubscriptionService
 from uuid import uuid4
 from datetime import datetime
 
 class UserService:
-    def __init__(self, user_repo: UserRepository):
+    def __init__(self, user_repo: UserRepository, subscription_service: SubscriptionService):
         self.user_repo = user_repo
+        self.subscription_service = subscription_service
     
     async def get_or_create_user(self, telegram_id: int, username: str = None, 
                                first_name: str = "", last_name: str = None) -> User:
@@ -28,7 +30,12 @@ class UserService:
             updated_at=datetime.utcnow()
         )
         
-        return await self.user_repo.create(new_user)
+        user = await self.user_repo.create(new_user)
+        
+        # Создаем бесплатную подписку для нового пользователя
+        await self.subscription_service.create_free_subscription(user.id)
+        
+        return user
     
     async def update_user_activity(self, telegram_id: int) -> None:
         """Обновляет активность пользователя"""

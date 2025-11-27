@@ -2,8 +2,10 @@ from infrastructure.database.database import Database
 from infrastructure.database.repositories.user_repository_impl import UserRepositoryImpl
 from infrastructure.database.repositories.document_repository_impl import DocumentRepositoryImpl
 from infrastructure.database.repositories.template_repository_impl import TemplateRepositoryImpl
+from infrastructure.database.repositories.subscription_repository_impl import SubscriptionRepositoryImpl
 from application.services.user_service import UserService
 from application.services.document_service import DocumentService
+from application.services.subscription_service import SubscriptionService
 from domain.services.menu_service import MenuService
 from presentation.telegram.keyboards.main_keyboards import MainKeyboards
 
@@ -12,6 +14,7 @@ class ServiceLocator:
         self._database = None
         self._user_service = None
         self._document_service = None
+        self._subscription_service = None
         self._menu_service = None
         self._keyboards = None
     
@@ -25,12 +28,14 @@ class ServiceLocator:
         user_repo = UserRepositoryImpl(self._database)
         document_repo = DocumentRepositoryImpl(self._database)
         template_repo = TemplateRepositoryImpl(self._database)
+        subscription_repo = SubscriptionRepositoryImpl(self._database)
         
         # Инициализация сервисов
-        self._user_service = UserService(user_repo)
+        self._subscription_service = SubscriptionService(subscription_repo, user_repo)
+        self._user_service = UserService(user_repo, self._subscription_service)
         self._document_service = DocumentService(document_repo, user_repo)
         self._menu_service = MenuService()
-        self._keyboards = MainKeyboards(self._menu_service)  # Передаем menu_service
+        self._keyboards = MainKeyboards(self._menu_service)
     
     async def get_user_service(self) -> UserService:
         if self._user_service is None:
@@ -41,6 +46,11 @@ class ServiceLocator:
         if self._document_service is None:
             await self.initialize()
         return self._document_service
+    
+    async def get_subscription_service(self) -> SubscriptionService:
+        if self._subscription_service is None:
+            await self.initialize()
+        return self._subscription_service
     
     async def get_menu_service(self) -> MenuService:
         if self._menu_service is None:

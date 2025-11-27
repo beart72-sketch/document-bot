@@ -13,6 +13,7 @@ class TelegramBot:
         self.bot = AsyncTeleBot(config.telegram.bot_token)
         self.user_service = None
         self.document_service = None
+        self.subscription_service = None
         self.menu_service = None
         self.keyboards = None
         self.bot_facade = None
@@ -21,6 +22,7 @@ class TelegramBot:
         """Инициализация сервисов"""
         self.user_service = await service_locator.get_user_service()
         self.document_service = await service_locator.get_document_service()
+        self.subscription_service = await service_locator.get_subscription_service()
         self.menu_service = await service_locator.get_menu_service()
         self.keyboards = service_locator.get_keyboards()
         
@@ -28,6 +30,7 @@ class TelegramBot:
             bot=self.bot,
             user_service=self.user_service,
             document_service=self.document_service,
+            subscription_service=self.subscription_service,
             menu_service=self.menu_service,
             keyboards=self.keyboards
         )
@@ -42,6 +45,7 @@ class TelegramBot:
         # Команды
         self.bot.message_handler(commands=['start'])(self.bot_facade.handle_start)
         self.bot.message_handler(commands=['help'])(self.bot_facade.handle_help)
+        self.bot.message_handler(commands=['payment'])(self.bot_facade.handle_payment)
         
         # Текстовые сообщения
         self.bot.message_handler(func=lambda message: True)(self.bot_facade.handle_message)

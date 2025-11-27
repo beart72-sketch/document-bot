@@ -4,18 +4,22 @@ from domain.services.menu_service import MenuService
 from presentation.telegram.keyboards.main_keyboards import MainKeyboards
 from application.services.user_service import UserService
 from application.services.document_service import DocumentService
+from application.services.subscription_service import SubscriptionService
 from domain.entities.document import DocumentType
 from domain.entities.menu import MenuType
+from domain.entities.subscription import SubscriptionPlan
 
 class BotFacade:
     """Фасад для работы с ботом"""
     
     def __init__(self, bot: AsyncTeleBot, user_service: UserService, 
                  document_service: DocumentService,
+                 subscription_service: SubscriptionService,
                  menu_service: MenuService, keyboards: MainKeyboards):
         self.bot = bot
         self.user_service = user_service
         self.document_service = document_service
+        self.subscription_service = subscription_service
         self.menu_service = menu_service
         self.keyboards = keyboards
         self._user_document_states: Dict[int, Dict[str, Any]] = {}
@@ -49,6 +53,118 @@ class BotFacade:
             reply_markup=menu
         )
     
+    async def handle_subscription(self, message: Any) -> None:
+        """Обработчик управления подпиской"""
+        user = await self._ensure_user_exists(message)
+        user_id = message.from_user.id
+        
+        try:
+            # Получаем информацию о подписке
+            subscription_info = await self.subscription_service.get_subscription_info(user.id)
+            
+            plan_names = {
+                "free": "🆓 Бесплатный",
+                "premium": "💎 Премиум", 
+                "business": "🏢 Бизнес"
+            }
+            
+            plan_emoji = plan_names.get(subscription_info["plan"], "🆓")
+            
+            response_text = (
+                f"{plan_emoji} **Ваша подписка**\n\n"
+                f"📊 **Текущий план:** {subscription_info['plan'].upper()}\n"
+                f"🔄 **Статус:** {subscription_info['status']}\n"
+                f"📅 **Дней осталось:** {subscription_info['days_remaining']}\n"
+                f"⏰ **Действует до:** {subscription_info['end_date'].strftime('%d.%m.%Y')}\n\n"
+            )
+            
+            # Добавляем информацию о лимитах
+            features = subscription_info["features"]
+            response_text += (
+                "📋 **Ваши лимиты:**\n"
+                f"• 📄 Документов в месяц: {features.get('documents_per_month', 5)}\n"
+                f"• 🤖 AI-запросов: {features.get('ai_requests', 10)}\n"
+                f"• 📝 Макс. длина документа: {features.get('max_document_length', 1000)} символов\n\n"
+            )
+            
+            # Добавляем информацию о доступных шаблонах
+            templates = features.get('templates_access', ['basic'])
+            response_text += f"• 🎨 Доступные шаблоны: {', '.join(templates)}\n\n"
+            
+            if subscription_info["plan"] == "free":
+                response_text += (
+                    "💎 **Премиум функции:**\n"
+                    "• 📈 Больше документов в месяц\n"
+                    "• 🚀 Приоритетная генерация\n" 
+                    "• 🎨 Расширенные шаблоны\n"
+                    "• 🤖 Больше AI-запросов\n\n"
+                    "Нажмите '💎 Премиум' для улучшения подписки!"
+                )
+            
+            await self.bot.send_message(message.chat.id, response_text)
+            
+        except Exception as e:
+            print(f"❌ Ошибка при получении информации о подписке: {e}")
+            await self.bot.send_message(
+                message.chat.id,
+                "❌ Произошла ошибка при загрузке информации о подписке. Попробуйте позже."
+            )
+    
+    async def handle_premium(self, message: Any) -> None:
+        """Обработчик премиум подписки"""
+        user = await self._ensure_user_exists(message)
+        
+        premium_text = (
+            "💎 **Премиум подписка**\n\n"
+            "**Что вы получаете:**\n"
+            "• 📈 50 документов в месяц (вместо 5)\n"
+            "• 🚀 Приоритетная генерация документов\n"
+            "• 🎨 Доступ к премиум шаблонам\n"
+            "• 🤖 100 AI-запросов в месяц\n"
+            "• 📝 Увеличенная длина документов\n\n"
+            
+            "🏢 **Бизнес подписка**\n"
+            "• 📈 500 документов в месяц\n" 
+            "• ⚡ Максимальная скорость\n"
+            "• 🎨 Все шаблоны включая бизнес\n"
+            "• 🤖 1000 AI-запросов в месяц\n"
+            "• 🔧 Персональная поддержка\n\n"
+            
+            "💰 **Стоимость:**\n"
+            "• 💎 Премиум: 299₽/месяц\n"
+            "• 🏢 Бизнес: 999₽/месяц\n\n"
+            
+            "🛒 Для приобретения подписки обратитесь к администратору @admin\n"
+            "или используйте команду /payment"
+        )
+        
+        await self.bot.send_message(message.chat.id, premium_text)
+    
+    async def handle_payment(self, message: Any) -> None:
+        """Обработчик оплаты подписки"""
+        payment_text = (
+            "💳 **Оплата подписки**\n\n"
+            "**Доступные способы оплаты:**\n"
+            "• 💰 Банковская карта (Visa/MasterCard/Мир)\n"
+            "• 🤝 ЮMoney\n"
+            "• 📱 СБП (Система быстрых платежей)\n"
+            "• 💎 Crypto (USDT, BTC)\n\n"
+            
+            "**Инструкция по оплате:**\n"
+            "1. Выберите желаемый план подписки\n"
+            "2. Нажмите кнопку 'Оплатить'\n"
+            "3. Следуйте инструкциям платежной системы\n"
+            "4. Подписка активируется автоматически\n\n"
+            
+            "📞 **Поддержка:** @admin\n"
+            "⏰ **Время активации:** до 15 минут\n\n"
+            
+            "⚠️ **Внимание:** Это демо-версия. В реальном боте здесь будет интеграция с платежной системой."
+        )
+        
+        await self.bot.send_message(message.chat.id, payment_text)
+
+    # Остальные методы остаются без изменений...
     async def handle_message(self, message: Any) -> None:
         """Обработка всех сообщений"""
         # Сначала гарантируем что пользователь существует
@@ -89,7 +205,6 @@ class BotFacade:
     
     async def handle_my_documents(self, message: Any) -> None:
         """Обработчик моих документов"""
-        # ГАРАНТИРУЕМ что пользователь существует
         user = await self._ensure_user_exists(message)
         user_id = message.from_user.id
         
@@ -131,8 +246,7 @@ class BotFacade:
                 message.chat.id,
                 "❌ Произошла ошибка при загрузке документов. Попробуйте позже."
             )
-
-    # Остальные методы остаются без изменений...
+    
     async def handle_document_type(self, message: Any) -> None:
         """Обработчик выбора типа документа"""
         await self._ensure_user_exists(message)
@@ -184,9 +298,11 @@ class BotFacade:
             message.chat.id,
             "📖 **Помощь по боту**\n\n"
             "• 📋 Создать документ - создание новых юридических документов\n"
-            "• 📁 Мои документы - просмотр созданных документов\n"
+            "• 📂 Мои документы - просмотр созданных документов\n"
+            "• 💎 Премиум - информация о подписках\n"
+            "• 💳 Подписка - управление вашей подпиской\n"
             "• ⚙️ Настройки - настройки аккаунта\n"
-            "• ℹ️ Помощь - это сообщение\n\n"
+            "• 🆘 Помощь - это сообщение\n\n"
             "Для начала работы используйте меню ниже."
         )
     
@@ -254,7 +370,7 @@ class BotFacade:
                     f"📋 Тип: {self._get_document_type_name(document.document_type)}\n"
                     f"🔄 Статус: Черновик\n\n"
                     f"ID документа: `{document.id}`\n\n"
-                    f"Вы можете просмотреть свои документы в разделе '📁 Мои документы'",
+                    f"Вы можете просмотреть свои документы в разделе '📂 Мои документы'",
                     reply_markup=self.keyboards.create_reply_keyboard(MenuType.MAIN)
                 )
                 

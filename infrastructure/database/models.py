@@ -1,6 +1,18 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, JSON, Enum as SQLEnum
 from datetime import datetime
-from .base import Base  # Импортируем Base из нового файла
+from .base import Base
+import enum
+
+class SubscriptionPlan(enum.Enum):
+    FREE = "free"
+    PREMIUM = "premium"
+    BUSINESS = "business"
+
+class SubscriptionStatus(enum.Enum):
+    ACTIVE = "active"
+    EXPIRED = "expired"
+    CANCELLED = "cancelled"
+    PENDING = "pending"
 
 class UserModel(Base):
     __tablename__ = "users"
@@ -32,6 +44,19 @@ class DocumentModel(Base):
     template_id = Column(String)
     document_metadata = Column(JSON)
     variables = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class SubscriptionModel(Base):
+    __tablename__ = "subscriptions"
+    
+    id = Column(String, primary_key=True)
+    user_id = Column(String, index=True)
+    plan = Column(SQLEnum(SubscriptionPlan))
+    status = Column(SQLEnum(SubscriptionStatus))
+    start_date = Column(DateTime, nullable=False)
+    end_date = Column(DateTime, nullable=False)
+    features = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
