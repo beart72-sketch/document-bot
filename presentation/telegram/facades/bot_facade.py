@@ -5,7 +5,7 @@ from presentation.telegram.keyboards.main_keyboards import MainKeyboards
 from application.services.user_service import UserService
 from application.services.document_service import DocumentService
 from domain.entities.document import DocumentType
-from domain.entities.menu import MenuType  # Добавляем импорт
+from domain.entities.menu import MenuType
 
 class BotFacade:
     """Фасад для работы с ботом"""
@@ -20,18 +20,22 @@ class BotFacade:
         self.keyboards = keyboards
         self._user_document_states: Dict[int, Dict[str, Any]] = {}
     
-    async def handle_start(self, message: Any) -> None:
-        """Обработка команды /start"""
+    async def _ensure_user_exists(self, message: Any) -> None:
+        """Гарантирует что пользователь существует в системе"""
         user_id = message.from_user.id
-        self.menu_service.set_user_state(user_id, MenuType.MAIN)
-        
-        # Создаем/получаем пользователя
         user = await self.user_service.get_or_create_user(
             telegram_id=user_id,
             username=message.from_user.username,
             first_name=message.from_user.first_name,
             last_name=message.from_user.last_name
         )
+        return user
+    
+    async def handle_start(self, message: Any) -> None:
+        """Обработка команды /start"""
+        user = await self._ensure_user_exists(message)
+        user_id = message.from_user.id
+        self.menu_service.set_user_state(user_id, MenuType.MAIN)
         
         print(f"👤 Пользователь: {user.first_name} (ID: {user.telegram_id})")
         
@@ -47,6 +51,9 @@ class BotFacade:
     
     async def handle_message(self, message: Any) -> None:
         """Обработка всех сообщений"""
+        # Сначала гарантируем что пользователь существует
+        await self._ensure_user_exists(message)
+        
         user_id = message.from_user.id
         text = message.text
         
@@ -64,6 +71,7 @@ class BotFacade:
     
     async def handle_create_document(self, message: Any) -> None:
         """Обработчик создания документа"""
+        await self._ensure_user_exists(message)
         user_id = message.from_user.id
         self.menu_service.set_user_state(user_id, MenuType.DOCUMENT_TYPES)
         
@@ -79,42 +87,10 @@ class BotFacade:
             reply_markup=menu
         )
     
-    async def handle_document_type(self, message: Any) -> None:
-        """Обработчик выбора типа документа"""
-        user_id = message.from_user.id
-        text = message.text
-        
-        # Определяем тип документа по тексту кнопки
-        doc_type_map = {
-            '📃 Исковое заявление': DocumentType.CLAIM,
-            '📄 Договор': DocumentType.CONTRACT,
-            '📑 Жалоба': DocumentType.COMPLAINT,
-            '📊 Ходатайство': DocumentType.MOTION
-        }
-        
-        doc_type = doc_type_map.get(text)
-        if doc_type:
-            # Сохраняем состояние создания документа
-            self._user_document_states[user_id] = {
-                'document_type': doc_type,
-                'step': 'awaiting_title'
-            }
-            
-            await self.bot.send_message(
-                message.chat.id,
-                f"📝 **Создание {text}**\n\n"
-                "Введите название для вашего документа:",
-                reply_markup=self.keyboards.create_reply_keyboard(MenuType.DOCUMENT_TYPES)
-            )
-        else:
-            await self.bot.send_message(
-                message.chat.id,
-                "❌ Неизвестный тип документа",
-                reply_markup=self.keyboards.create_reply_keyboard(MenuType.MAIN)
-            )
-    
     async def handle_my_documents(self, message: Any) -> None:
         """Обработчик моих документов"""
+        # ГАРАНТИРУЕМ что пользователь существует
+        user = await self._ensure_user_exists(message)
         user_id = message.from_user.id
         
         try:
@@ -155,9 +131,46 @@ class BotFacade:
                 message.chat.id,
                 "❌ Произошла ошибка при загрузке документов. Попробуйте позже."
             )
+
+    # Остальные методы остаются без изменений...
+    async def handle_document_type(self, message: Any) -> None:
+        """Обработчик выбора типа документа"""
+        await self._ensure_user_exists(message)
+        user_id = message.from_user.id
+        text = message.text
+        
+        # Определяем тип документа по тексту кнопки
+        doc_type_map = {
+            '📃 Исковое заявление': DocumentType.CLAIM,
+            '📄 Договор': DocumentType.CONTRACT,
+            '📑 Жалоба': DocumentType.COMPLAINT,
+            '📊 Ходатайство': DocumentType.MOTION
+        }
+        
+        doc_type = doc_type_map.get(text)
+        if doc_type:
+            # Сохраняем состояние создания документа
+            self._user_document_states[user_id] = {
+                'document_type': doc_type,
+                'step': 'awaiting_title'
+            }
+            
+            await self.bot.send_message(
+                message.chat.id,
+                f"📝 **Создание {text}**\n\n"
+                "Введите название для вашего документа:",
+                reply_markup=self.keyboards.create_reply_keyboard(MenuType.DOCUMENT_TYPES)
+            )
+        else:
+            await self.bot.send_message(
+                message.chat.id,
+                "❌ Неизвестный тип документа",
+                reply_markup=self.keyboards.create_reply_keyboard(MenuType.MAIN)
+            )
     
     async def handle_settings(self, message: Any) -> None:
         """Обработчик настроек"""
+        await self._ensure_user_exists(message)
         await self.bot.send_message(
             message.chat.id,
             "⚙️ **Настройки**\n\n"
@@ -166,6 +179,7 @@ class BotFacade:
     
     async def handle_help(self, message: Any) -> None:
         """Обработчик помощи из меню"""
+        await self._ensure_user_exists(message)
         await self.bot.send_message(
             message.chat.id,
             "📖 **Помощь по боту**\n\n"
@@ -178,6 +192,7 @@ class BotFacade:
     
     async def handle_back(self, message: Any) -> None:
         """Обработчик кнопки Назад"""
+        await self._ensure_user_exists(message)
         user_id = message.from_user.id
         
         # Очищаем состояние создания документа
@@ -196,6 +211,7 @@ class BotFacade:
     
     async def _handle_text_input(self, message: Any, user_state) -> None:
         """Обработка произвольного текстового ввода"""
+        await self._ensure_user_exists(message)
         user_id = message.from_user.id
         text = message.text
         
@@ -213,6 +229,7 @@ class BotFacade:
     
     async def _handle_document_creation(self, message: Any) -> None:
         """Обработка процесса создания документа"""
+        await self._ensure_user_exists(message)
         user_id = message.from_user.id
         text = message.text
         state = self._user_document_states[user_id]
@@ -266,7 +283,7 @@ class BotFacade:
         """Возвращает читаемое название статуса"""
         status_names = {
             'draft': 'Черновик',
-            'in_progress': 'В работе',
+            'in_progress': 'В работе'
             'completed': 'Завершен',
             'archived': 'В архиве'
         }
