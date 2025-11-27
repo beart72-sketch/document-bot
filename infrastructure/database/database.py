@@ -1,38 +1,31 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from .base import Base  # Импортируем Base из нового файла
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from infrastructure.database.models import Base
+import os
 
 class Database:
     def __init__(self):
         self.engine = None
         self.async_session = None
     
-    async def initialize(self):
-        """Инициализация базы данных"""
-        # Используем SQLite для простоты
-        database_url = "sqlite+aiosqlite:///legal_bot.db"
+    async def connect(self, connection_string: str = None):
+        if connection_string is None:
+            connection_string = os.getenv(
+                "DATABASE_URL", 
+                "sqlite+aiosqlite:///./legal_docs.db"
+            )
         
-        self.engine = create_async_engine(
-            database_url,
-            echo=True,
-            future=True
+        self.engine = create_async_engine(connection_string, echo=True)
+        self.async_session = sessionmaker(
+            self.engine, class_=AsyncSession, expire_on_commit=False
         )
         
-        self.async_session = async_sessionmaker(
-            self.engine,
-            class_=AsyncSession,
-            expire_on_commit=False
-        )
-        
-        # Создаем таблицы
         async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
     
-    async def get_session(self) -> AsyncSession:
-        """Получение сессии базы данных"""
-        async with self.async_session() as session:
-            yield session
-    
-    async def close(self):
-        """Закрытие соединения с базой данных"""
+    async def disconnect(self):
         if self.engine:
             await self.engine.dispose()
+    
+    def get_session(self):
+        return self.async_session()

@@ -1,17 +1,28 @@
-# Backup files
-*.tar.gz
-*.zip
-*.bak
+# Файлы окружения
+.env
+.env.local
+.env.production
 
-# Virtual environment
-venv/
-env/
-.venv/
+# Базы данных
+*.db
+*.sqlite
+*.db-journal
 
-# Python cache
+# Бэкапы
+backups/
+*.backup
+
+# Логи
+logs/
+*.log
+
+# Питон
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
 
 # IDE
 .vscode/
@@ -19,24 +30,6 @@ __pycache__/
 *.swp
 *.swo
 
-# Environment variables
-.env
-.env.local
-
-# Logs
-*.log
-logs/
-
-# Database
-*.db
-*.sqlite3
-
-# OS
+# Операционные системы
 .DS_Store
 Thumbs.db
-
-# Large files
-*.tar
-*.gz
-*.7z
-*.rar

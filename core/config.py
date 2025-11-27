@@ -1,9 +1,5 @@
 import os
-from dataclasses import dataclass, field
-from typing import List
-from dotenv import load_dotenv
-
-load_dotenv()
+from pathlib import Path
 
 class Config:
     """Конфигурация бота"""
@@ -14,26 +10,17 @@ class Config:
     LOGS_DIR = "logs"
     ENCRYPTION_KEY = "секрет"
     SALT = b"legal_bot_salt_2024"
-
-# Для совместимости с существующим кодом создаем dataclass конфиг
-@dataclass
-class TelegramConfig:
-    bot_token: str = Config.TOKEN
-    admin_ids: List[int] = field(default_factory=lambda: Config.ADMIN_IDS)
-
-@dataclass
-class DatabaseConfig:
-    database: str = Config.DB_NAME
     
-    @property
-    def url(self) -> str:
-        return f"sqlite+aiosqlite:///{self.database}"
+    # Пути
+    TEMPLATES_DIR: Path = Path("templates")
+    
+    # Таймауты кэширования
+    USER_CACHE_TIMEOUT: int = 300  # 5 минут
+    AI_CACHE_TIMEOUT: int = 600    # 10 минут
+    
+    # Базовые лимиты
+    FREE_DOCUMENTS_PER_MONTH: int = 5
+    FREE_AI_REQUESTS: int = 10
 
-@dataclass
-class AppConfig:
-    debug: bool = os.getenv("DEBUG", "False").lower() == "true"
-    database: DatabaseConfig = field(default_factory=DatabaseConfig)
-    telegram: TelegramConfig = field(default_factory=TelegramConfig)
-
-# Глобальный экземпляр конфигурации
-config = AppConfig()
+# Экспортируем конфигурацию
+config = Config()

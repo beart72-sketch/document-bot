@@ -1,6 +1,6 @@
 from typing import Optional, List
 import logging
-from domain.entities.subscription import Subscription, SubscriptionPlan, SubscriptionStatus
+from domain.entities.subscription import Subscription
 from domain.repositories.subscription_repository import SubscriptionRepository
 from infrastructure.database.models import SubscriptionModel
 from sqlalchemy import select
@@ -12,24 +12,33 @@ class SubscriptionRepositoryImpl(SubscriptionRepository):
         self.database = database
     
     async def get_by_id(self, subscription_id: str) -> Optional[Subscription]:
-        async with self.database.async_session() as session:
-            result = await session.get(SubscriptionModel, subscription_id)
-            if result:
-                return self._to_entity(result)
+        try:
+            async with self.database.async_session() as session:
+                result = await session.get(SubscriptionModel, subscription_id)
+                if result:
+                    return self._to_entity(result)
+                return None
+        except Exception as e:
+            logger.error(f"❌ Ошибка получения подписки по ID {subscription_id}: {e}")
             return None
     
     async def get_by_user_id(self, user_id: str) -> Optional[Subscription]:
-        async with self.database.async_session() as session:
-            stmt = select(SubscriptionModel).where(SubscriptionModel.user_id == user_id)
-            result = await session.execute(stmt)
-            subscription_model = result.scalar_one_or_none()
-            if subscription_model:
-                return self._to_entity(subscription_model)
+        try:
+            async with self.database.async_session() as session:
+                stmt = select(SubscriptionModel).where(SubscriptionModel.user_id == user_id)
+                result = await session.execute(stmt)
+                subscription_model = result.scalar_one_or_none()
+                
+                if subscription_model:
+                    return self._to_entity(subscription_model)
+                return None
+        except Exception as e:
+            logger.error(f"❌ Ошибка получения подписки по user_id {user_id}: {e}")
             return None
     
-    async def get_active_subscriptions(self) -> List[Subscription]:
+    async def get_all(self) -> List[Subscription]:
         async with self.database.async_session() as session:
-            stmt = select(SubscriptionModel).where(SubscriptionModel.status == SubscriptionStatus.ACTIVE)
+            stmt = select(SubscriptionModel)
             result = await session.execute(stmt)
             subscriptions = result.scalars().all()
             return [self._to_entity(sub) for sub in subscriptions]
@@ -77,11 +86,11 @@ class SubscriptionRepositoryImpl(SubscriptionRepository):
         return Subscription(
             id=model.id,
             user_id=model.user_id,
-            plan=SubscriptionPlan(model.plan.value),
-            status=SubscriptionStatus(model.status.value),
+            plan=model.plan,
+            status=model.status,
             start_date=model.start_date,
             end_date=model.end_date,
-            features=model.features or {},
+            features=model.features,
             created_at=model.created_at,
             updated_at=model.updated_at
         )

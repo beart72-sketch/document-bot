@@ -1,77 +1,45 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, JSON, Enum as SQLEnum
+from sqlalchemy import Column, String, Text, DateTime, JSON, Boolean
+from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
-from .base import Base
-import enum
 
-class SubscriptionPlan(enum.Enum):
-    FREE = "free"
-    PREMIUM = "premium"
-    BUSINESS = "business"
-
-class SubscriptionStatus(enum.Enum):
-    ACTIVE = "active"
-    EXPIRED = "expired"
-    CANCELLED = "cancelled"
-    PENDING = "pending"
+Base = declarative_base()
 
 class UserModel(Base):
     __tablename__ = "users"
-    
+
     id = Column(String, primary_key=True)
-    telegram_id = Column(Integer, unique=True, index=True)
-    username = Column(String(100))
-    first_name = Column(String(100))
-    last_name = Column(String(100))
-    email = Column(String(255))
-    role = Column(String(50), default="user")
-    subscription_type = Column(String(50), default="free")
-    subscription_start = Column(DateTime)
-    subscription_end = Column(DateTime)
-    is_subscription_active = Column(Boolean, default=False)
-    settings = Column(JSON)
+    email = Column(String, unique=True, nullable=False)
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    profile_data = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class DocumentModel(Base):
     __tablename__ = "documents"
-    
+
     id = Column(String, primary_key=True)
-    title = Column(String(255))
-    content = Column(Text)
-    document_type = Column(String(50))
-    status = Column(String(50))
-    user_id = Column(String, index=True)
-    template_id = Column(String)
-    document_metadata = Column(JSON)
-    variables = Column(JSON)
+    title = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    document_type = Column(String, nullable=False)
+    status = Column(String, nullable=False)
+    user_id = Column(String, nullable=False)
+    template_id = Column(String, nullable=True)
+    document_metadata = Column(JSON, nullable=True)
+    variables = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class SubscriptionModel(Base):
     __tablename__ = "subscriptions"
-    
+
     id = Column(String, primary_key=True)
-    user_id = Column(String, index=True)
-    plan = Column(SQLEnum(SubscriptionPlan))
-    status = Column(SQLEnum(SubscriptionStatus))
+    user_id = Column(String, nullable=False)
+    plan = Column(String, nullable=False)
+    status = Column(String, nullable=False)
     start_date = Column(DateTime, nullable=False)
     end_date = Column(DateTime, nullable=False)
-    features = Column(JSON)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-class DocumentTemplateModel(Base):
-    __tablename__ = "document_templates"
-    
-    id = Column(String, primary_key=True)
-    name = Column(String(255))
-    description = Column(Text)
-    content = Column(Text)
-    document_type = Column(String(100))
-    variables_schema = Column(JSON)
-    required_variables = Column(JSON)
-    category = Column(String(100), default="general")
-    version = Column(String(50), default="1.0")
-    is_active = Column(Boolean, default=True)
+    features = Column(JSON, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

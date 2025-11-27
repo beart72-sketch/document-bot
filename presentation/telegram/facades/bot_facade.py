@@ -24,7 +24,7 @@ class BotFacade:
         self.keyboards = keyboards
         self._user_document_states: Dict[int, Dict[str, Any]] = {}
     
-    async def _ensure_user_exists(self, message: Any) -> None:
+    async def _ensure_user_exists(self, message: Any) -> Any:
         """Гарантирует что пользователь существует в системе"""
         user_id = message.from_user.id
         user = await self.user_service.get_or_create_user(
@@ -210,11 +210,16 @@ class BotFacade:
         
         try:
             # Получаем документы пользователя
-            documents_response = await self.document_service.get_user_documents(user_id)
+            documents_response = await self.document_service.get_user_documents(user.telegram_id)
             
             if documents_response.documents:
                 response_text = "📂 **Ваши документы:**\n\n"
                 for i, doc in enumerate(documents_response.documents, 1):
+                    # Безопасное получение типа документа
+                    doc_type = doc.document_type
+                    if hasattr(doc_type, 'value'):
+                        doc_type = doc_type.value
+                    
                     status_emoji = {
                         'draft': '📄',
                         'in_progress': '🔄', 
@@ -224,7 +229,7 @@ class BotFacade:
                     
                     response_text += (
                         f"{i}. {status_emoji} **{doc.title}**\n"
-                        f"   Тип: {self._get_document_type_name(doc.document_type)}\n"
+                        f"   Тип: {self._get_document_type_name(doc_type)}\n"
                         f"   Статус: {self._get_status_name(doc.status)}\n"
                         f"   Создан: {doc.created_at.strftime('%d.%m.%Y')}\n\n"
                     )
@@ -253,7 +258,7 @@ class BotFacade:
         user_id = message.from_user.id
         text = message.text
         
-        # Определяем тип документа по тексту кнопки
+        # Определяем тип документа по тексту
         doc_type_map = {
             '📃 Исковое заявление': DocumentType.CLAIM,
             '📄 Договор': DocumentType.CONTRACT,
@@ -352,12 +357,19 @@ class BotFacade:
         
         try:
             if state['step'] == 'awaiting_title':
+                # Безопасное получение значения типа документа
+                document_type = state['document_type']
+                if hasattr(document_type, 'value'):
+                    document_type_value = document_type.value
+                else:
+                    document_type_value = str(document_type)
+                
                 # Создаем документ с введенным названием
                 document = await self.document_service.create_document(
-                    user_telegram_id=user_id,
+                    user_id=user_id,  # 🔥 ИСПРАВЛЕНО: user_id вместо user_telegram_id
                     title=text,
-                    document_type=state['document_type'],
-                    content=f"Черновик документа '{text}'\n\nТип: {state['document_type'].value}"
+                    document_type=document_type_value,
+                    content=f"Черновик документа '{text}'\n\nТип: {document_type_value}"
                 )
                 
                 # Очищаем состояние
@@ -367,7 +379,7 @@ class BotFacade:
                     message.chat.id,
                     f"✅ **Документ создан!**\n\n"
                     f"📄 **{document.title}**\n"
-                    f"📋 Тип: {self._get_document_type_name(document.document_type)}\n"
+                    f"📋 Тип: {self._get_document_type_name(document_type_value)}\n"
                     f"🔄 Статус: Черновик\n\n"
                     f"ID документа: `{document.id}`\n\n"
                     f"Вы можете просмотреть свои документы в разделе '📂 Мои документы'",
