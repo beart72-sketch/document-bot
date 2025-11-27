@@ -1,41 +1,48 @@
 from typing import List, Optional
-from domain.entities.document import DocumentType
-from application.use_cases.documents.create_document import CreateDocumentUseCase
-from application.use_cases.documents.get_user_documents import GetUserDocumentsUseCase
-from application.dtos.document_dtos import CreateDocumentRequest, DocumentResponse, DocumentListResponse
+from domain.entities.document import Document, DocumentStatus, DocumentType
+from domain.repositories.document_repository import DocumentRepository
+from domain.repositories.user_repository import UserRepository
 
 class DocumentService:
-    """Сервис для работы с документами"""
+    def __init__(self, document_repo: DocumentRepository, user_repo: UserRepository):
+        self.document_repo = document_repo
+        self.user_repo = user_repo
     
-    def __init__(self, 
-                 create_document_use_case: CreateDocumentUseCase,
-                 get_user_documents_use_case: GetUserDocumentsUseCase):
-        self._create_document_use_case = create_document_use_case
-        self._get_user_documents_use_case = get_user_documents_use_case
-    
-    async def create_document(self, 
-                            user_telegram_id: int,
-                            title: str,
-                            document_type: DocumentType,
-                            content: Optional[str] = None,
-                            template_id: Optional[str] = None,
-                            variables: Optional[dict] = None) -> DocumentResponse:
+    async def create_document(self, user_telegram_id: int, title: str, 
+                            document_type: DocumentType, content: str = "") -> Document:
         """Создает новый документ"""
-        request = CreateDocumentRequest(
-            user_telegram_id=user_telegram_id,
+        # Получаем пользователя
+        user = await self.user_repo.get_by_telegram_id(user_telegram_id)
+        if not user:
+            raise ValueError(f"Пользователь с telegram_id {user_telegram_id} не найден")
+        
+        # Создаем документ БЕЗ параметра metadata
+        document = Document(
             title=title,
-            document_type=document_type,
             content=content,
-            template_id=template_id,
-            variables=variables
+            document_type=document_type,
+            user_id=user.id,
+            status=DocumentStatus.DRAFT
         )
-        return await self._create_document_use_case.execute(request)
+        
+        return await self.document_repo.create(document)
     
-    async def get_user_documents(self, user_telegram_id: int) -> DocumentListResponse:
+    async def get_user_documents(self, user_telegram_id: int):
         """Получает документы пользователя"""
-        documents = await self._get_user_documents_use_case.execute(user_telegram_id)
-        return DocumentListResponse(
+        user = await self.user_repo.get_by_telegram_id(user_telegram_id)
+        if not user:
+            return GetUserDocumentsResponse(documents=[], total_count=0, user_document_limit=10)
+        
+        documents = await self.document_repo.get_by_user_id(user.id)
+        
+        return GetUserDocumentsResponse(
             documents=documents,
             total_count=len(documents),
-            user_document_limit=10  # Можно вынести в конфигурацию
+            user_document_limit=10  # TODO: брать из подписки
         )
+
+class GetUserDocumentsResponse:
+    def __init__(self, documents: List[Document], total_count: int, user_document_limit: int):
+        self.documents = documents
+        self.total_count = total_count
+        self.user_document_limit = user_document_limit

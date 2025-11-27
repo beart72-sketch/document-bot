@@ -26,7 +26,7 @@ class Document:
     status: DocumentStatus = DocumentStatus.DRAFT
     user_id: Optional[str] = None
     template_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)  # Изменяем на metadata
+    document_metadata: Dict[str, Any] = field(default_factory=dict)  # Возвращаем document_metadata
     variables: Dict[str, Any] = field(default_factory=dict)
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -34,8 +34,8 @@ class Document:
     def __post_init__(self):
         if self.id is None:
             self.id = str(uuid4())
-        if self.metadata is None:
-            self.metadata = {}
+        if self.document_metadata is None:
+            self.document_metadata = {}
         if self.variables is None:
             self.variables = {}
         if self.created_at is None:
