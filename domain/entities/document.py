@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 from datetime import datetime
 from uuid import uuid4
@@ -26,32 +26,22 @@ class Document:
     status: DocumentStatus = DocumentStatus.DRAFT
     user_id: Optional[str] = None
     template_id: Optional[str] = None
-    document_metadata: Dict[str, Any] = None
-    variables: Dict[str, Any] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)  # Изменяем на metadata
+    variables: Dict[str, Any] = field(default_factory=dict)
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     
     def __post_init__(self):
         if self.id is None:
             self.id = str(uuid4())
-        if self.document_metadata is None:
-            self.document_metadata = {}
+        if self.metadata is None:
+            self.metadata = {}
         if self.variables is None:
             self.variables = {}
         if self.created_at is None:
             self.created_at = datetime.utcnow()
         if self.updated_at is None:
             self.updated_at = datetime.utcnow()
-    
-    @property
-    def metadata(self) -> Dict[str, Any]:
-        """Свойство для доступа к document_metadata"""
-        return self.document_metadata
-    
-    @metadata.setter
-    def metadata(self, value: Dict[str, Any]) -> None:
-        """Сеттер для document_metadata"""
-        self.document_metadata = value
     
     def update_content(self, new_content: str) -> None:
         """Обновляет содержимое документа"""

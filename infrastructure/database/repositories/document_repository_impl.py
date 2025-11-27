@@ -32,7 +32,7 @@ class DocumentRepositoryImpl(DocumentRepository):
             status=document.status.value,
             user_id=document.user_id,
             template_id=document.template_id,
-            document_metadata=document.metadata,
+            metadata=document.metadata,
             variables=document.variables
         )
         self._session.add(db_document)
@@ -47,7 +47,7 @@ class DocumentRepositoryImpl(DocumentRepository):
             db_document.content = document.content
             db_document.document_type = document.document_type.value
             db_document.status = document.status.value
-            db_document.document_metadata = document.metadata
+            db_document.metadata = document.metadata
             db_document.variables = document.variables
             await self._session.commit()
             return self._to_domain(db_document)
@@ -91,7 +91,7 @@ class DocumentRepositoryImpl(DocumentRepository):
             user_id=db_document.user_id,
             template_id=db_document.template_id,
             variables=db_document.variables,
-            document_metadata=db_document.document_metadata,
+            metadata=db_document.metadata,
             created_at=db_document.created_at,
             updated_at=db_document.updated_at
         )

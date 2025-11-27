@@ -61,8 +61,8 @@ class DocumentModel(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
     template_id: Mapped[Optional[str]] = mapped_column(ForeignKey("document_templates.id"))
     
-    # Метаданные (переименовано из metadata в document_metadata)
-    document_metadata: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    # Метаданные (переименовано из metadata в metadata)
+    metadata: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
     variables: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
