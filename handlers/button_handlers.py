@@ -3,10 +3,9 @@
 import logging
 from aiogram import F, Router
 from aiogram.types import Message
+from .keyboards import get_main_keyboard
 
 logger = logging.getLogger(__name__)
-
-# Создаем роутер для обработчиков кнопок
 button_router = Router()
 
 @button_router.message(F.text == "ℹ️ Помощь")
@@ -36,20 +35,6 @@ async def stats_button_handler(message: Message):
         "Обновлено: только что 🔄"
     )
     await message.answer(stats_text, parse_mode="Markdown")
-
-@button_router.message(F.text == "📝 Создать документ")
-async def create_doc_button_handler(message: Message):
-    logger.info(f"🎯 Сработал обработчик создания документа для пользователя {message.from_user.id}")
-    await message.answer(
-        "📝 *Создание документа*\n\n"
-        "Выберите тип документа:\n"
-        "• 📄 Отчет\n"
-        "• 📑 Договор\n"
-        "• 📊 Презентация\n"
-        "• ✉️ Письмо\n\n"
-        "Или введите название документа...",
-        parse_mode="Markdown"
-    )
 
 @button_router.message(F.text == "📋 Мои документы")
 async def my_documents_handler(message: Message):
@@ -93,8 +78,6 @@ async def settings_button_handler(message: Message):
         parse_mode="Markdown"
     )
 
-# Функция регистрации обработчиков кнопок
 async def register_button_handlers(dp):
-    """Регистрирует обработчики кнопок в диспетчере"""
     dp.include_router(button_router)
     logger.info("✅ Роутер кнопок добавлен в диспетчер")

@@ -1,53 +1,46 @@
-"""
-Базовые обработчики команд для бота
-Для aiogram 3.x
-"""
+"""Базовые обработчики команд (/start, /help)"""
 
 import logging
-from aiogram import Dispatcher, Router, types, F
+from aiogram import Router
+from aiogram.types import Message
 from aiogram.filters import Command
+from .keyboards import get_main_keyboard  # ← импортируем существующую функцию
 
-from metrics import BotMetrics, performance_monitor
-
-router = Router()
 logger = logging.getLogger(__name__)
+base_router = Router()
 
-
-@router.message(Command("start"))
-@BotMetrics.track_message()
-@performance_monitor.track_telegram_handler()
-async def cmd_start(message: types.Message):
-    """Обработчик команды /start"""
-    logger.info(f"🟢 Обработчик /start вызван пользователем {message.from_user.id}")
+@base_router.message(Command("start"))
+async def start_command(message: Message):
+    logger.info(f"👤 Пользователь {message.from_user.id} запустил бота")
+    
+    welcome_text = (
+        "🤖 *Добро пожаловать в Document Bot!*\n\n"
+        "Я помогу вам создавать и управлять документами.\n\n"
+        "Выберите действие:"
+    )
+    
     await message.answer(
-        "🤖 Добро пожаловать в Document Bot!\n\n"
-        "Доступные команды:\n"
-        "/start - Начать работу\n"
-        "/help - Помощь\n"
-        "/metrics - Метрики бота (только для админов)\n"
-        "/health - Статус здоровья (только для админов)\n"
-        "/performance - Отчет производительности (только для админов)"
+        welcome_text,
+        parse_mode="Markdown",
+        reply_markup=get_main_keyboard()  # ← используем как есть
     )
 
-
-@router.message(Command("help"))
-@BotMetrics.track_message()
-@performance_monitor.track_telegram_handler()
-async def cmd_help(message: types.Message):
-    """Обработчик команды /help"""
-    logger.info(f"🟢 Обработчик /help вызван пользователем {message.from_user.id}")
+@base_router.message(Command("help"))
+async def help_command(message: Message):
     await message.answer(
-        "📖 Помощь по Document Bot:\n\n"
-        "Этот бот предназначен для работы с документами.\n\n"
-        "Основные функции:\n"
-        "• Загрузка документов\n"
-        "• Управление документами\n"
-        "• Поиск по документам\n\n"
-        "Используйте команды из меню для навигации."
+        "🤖 *Главное меню*",
+        parse_mode="Markdown",
+        reply_markup=get_main_keyboard()
     )
 
+@base_router.message(Command("menu"))
+async def menu_command(message: Message):
+    await message.answer(
+        "📋 *Главное меню*",
+        parse_mode="Markdown",
+        reply_markup=get_main_keyboard()
+    )
 
-async def register_base_handlers(dp: Dispatcher):
-    """Регистрирует базовые обработчики"""
-    dp.include_router(router)
+async def register_base_handlers(dp):
+    dp.include_router(base_router)
     logger.info("🟢 Базовые обработчики: /start, /help")
