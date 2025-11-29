@@ -1,5 +1,6 @@
 import logging
 import datetime
+import hashlib
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -7,6 +8,14 @@ from aiogram.fsm.state import State, StatesGroup
 
 logger = logging.getLogger(__name__)
 document_creation_router = Router()
+
+# Маппинг типов документов на имена шаблонов в БД
+_TEMPLATE_MAP = {
+    "contract": "contract_template",
+    "act": "act_template", 
+    "statement": "statement_template",
+    "proxy": "proxy_template"
+}
 
 # Состояния для создания документа
 class DocumentCreation(StatesGroup):
@@ -223,7 +232,10 @@ async def generate_and_send_document(message: Message, state: FSMContext, doc_ty
         # Генерируем хеши
         data_str = str(sorted(data.items()))
         doc_hash = hashlib.sha256(data_str.encode()).hexdigest()[:16]
-        template_hash = audit_db.get_template_hash(doc_type) or "fallback_hash"
+        
+        # Получаем правильный хеш шаблона из БД
+        template_name = _TEMPLATE_MAP.get(doc_type, f"{doc_type}_template")
+        template_hash = audit_db.get_template_hash(template_name) or "fallback_hash"
 
         audit_id = audit_db.log_action(
             user_id=message.from_user.id,
@@ -238,7 +250,6 @@ async def generate_and_send_document(message: Message, state: FSMContext, doc_ty
             template_hash=template_hash
         )
         logger.info(f"✅ Аудит ID={audit_id} сохранён")
-        logger.info(f"📝 Создание документа '{doc_type}' для пользователя {message.from_user.id}")
         
         # Создаем простой текстовый документ (временное решение)
         doc_content = create_simple_document(doc_type, data)

@@ -72,23 +72,44 @@ async def show_detailed_help(message_or_callback):
     else:
         # Это обычное сообщение
         await message_or_callback.answer(help_text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
-@main_router.callback_query(F.data == "menu:main")
 
 @main_router.callback_query(F.data == "menu:help")
 async def help_handler(callback: CallbackQuery):
     """Помощь с обработкой исключений"""
     logger.info(f"🎯 Помощь от {callback.from_user.id}")
     await show_detailed_help(callback)
+
+@main_router.message(F.text == "/start")
+async def cmd_start(message: Message):
+    """Обработчик команды /start"""
+    logger.info(f"🚀 Start от {message.from_user.id}")
+    await message.answer(
+        "🏠 *Главное меню*\n\nВыберите действие:",
+        reply_markup=get_main_keyboard(),
+        parse_mode="Markdown"
+    )
+
+async def cmd_help(message: Message):
+    """Обработчик команды /help"""
+    logger.info(f"🎯 Команда /help от {message.from_user.id}")
+    await show_detailed_help(message)
+
+@main_router.message(F.text == "/help")
+async def cmd_help_handler(message: Message):
+    """Обработчик команды /help"""
+    await cmd_help(message)
+
+@main_router.callback_query(F.data == "menu:main")
 async def main_menu_handler(callback: CallbackQuery):
-    """Главное меню"""
+    """Главное меню с обработкой исключений"""
     logger.info(f"🎯 Главное меню от {callback.from_user.id}")
     text = "🏠 *Главное меню*\n\nВыберите действие:"
-    await callback.message.edit_text(text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
+    await safe_edit_message(callback, text, get_main_keyboard())
     await callback.answer()
 
 @main_router.callback_query(F.data == "menu:create_document")
 async def create_document_handler(callback: CallbackQuery):
-    """Создание документа"""
+    """Создание документа с обработкой исключений"""
     logger.info(f"🎯 Создание документа от {callback.from_user.id}")
     
     text = (
@@ -101,12 +122,12 @@ async def create_document_handler(callback: CallbackQuery):
         "Каждый тип имеет свой шаблон и набор полей"
     )
     
-    await callback.message.edit_text(text, reply_markup=get_document_types_keyboard(), parse_mode="Markdown")
+    await safe_edit_message(callback, text, get_document_types_keyboard())
     await callback.answer()
 
 @main_router.callback_query(F.data == "menu:my_documents")
 async def my_documents_handler(callback: CallbackQuery):
-    """Мои документы"""
+    """Мои документы с обработкой исключений"""
     logger.info(f"🎯 Мои документы от {callback.from_user.id}")
     
     text = (
@@ -120,12 +141,12 @@ async def my_documents_handler(callback: CallbackQuery):
         "Создайте свой первый документ! 👆"
     )
     
-    await callback.message.edit_text(text, reply_markup=get_back_keyboard(), parse_mode="Markdown")
+    await safe_edit_message(callback, text, get_back_keyboard())
     await callback.answer()
 
 @main_router.callback_query(F.data == "menu:subscription")
 async def subscription_handler(callback: CallbackQuery):
-    """Подписка"""
+    """Подписка с обработкой исключений"""
     logger.info(f"🎯 Подписка от {callback.from_user.id}")
     
     text = (
@@ -138,21 +159,12 @@ async def subscription_handler(callback: CallbackQuery):
         "Выберите действие:"
     )
     
-    await callback.message.edit_text(text, reply_markup=get_subscription_keyboard(), parse_mode="Markdown")
+    await safe_edit_message(callback, text, get_subscription_keyboard())
     await callback.answer()
-
-async def help_handler(callback: CallbackQuery):
-    """Помощь с обработкой исключений"""
-    logger.info(f"🎯 Помощь от {callback.from_user.id}")
-    await show_detailed_help(callback)
-async def help_handler(callback: CallbackQuery):
-    """Помощь"""
-    logger.info(f"🎯 Помощь от {callback.from_user.id}")
-    await show_detailed_help(callback)
 
 @main_router.callback_query(F.data.startswith("subscription:"))
 async def subscription_action_handler(callback: CallbackQuery):
-    """Действия подписки"""
+    """Действия подписки с обработкой исключений"""
     action = callback.data.split(":")[1]
     logger.info(f"🎯 Действие подписки '{action}' от {callback.from_user.id}")
     
@@ -171,7 +183,8 @@ async def subscription_action_handler(callback: CallbackQuery):
             "   • Все шаблоны\n"
             "   • Персональная поддержка"
         )
-        await callback.message.edit_text(text, reply_markup=get_subscription_plans_keyboard(), parse_mode="Markdown")
+        await safe_edit_message(callback, text, get_subscription_plans_keyboard())
+        await callback.answer()
     elif action == "stats":
         text = (
             "📊 *Ваша статистика*\n\n"
@@ -184,12 +197,12 @@ async def subscription_action_handler(callback: CallbackQuery):
             "• Базовые шаблоны\n"
             "• Стандартная поддержка"
         )
-        await callback.message.edit_text(text, reply_markup=get_back_keyboard(), parse_mode="Markdown")
-    await callback.answer()
+        await safe_edit_message(callback, text, get_back_keyboard())
+        await callback.answer()
 
 @main_router.callback_query(F.data.startswith("subscription_plan:"))
 async def subscription_plan_handler(callback: CallbackQuery):
-    """Выбор тарифа"""
+    """Выбор тарифа с обработкой исключений"""
     plan = callback.data.split(":")[1]
     plan_names = {
         "basic": "🟢 Базовый (299₽/мес)",
@@ -212,62 +225,8 @@ async def subscription_plan_handler(callback: CallbackQuery):
         "Скоро здесь будет интеграция с платежной системой"
     )
     
-    await callback.message.edit_text(text, reply_markup=get_back_keyboard(), parse_mode="Markdown")
+    await safe_edit_message(callback, text, get_back_keyboard())
     await callback.answer(f"💳 {plan_names[plan]}")
-
-# ===== УЛУЧШЕННЫЙ FALLBACK ОБРАБОТЧИК =====
-    """Обработчик неизвестных сообщений"""
-    user_text = message.text or ""
-    logger.info(f"🔴 Неизвестный текст: '{user_text}' от {message.from_user.id}")
-    
-    # Обработка старых текстовых команд
-    command_mapping = {
-        '📋 создать документ': 'menu:create_document',
-        '📁 мои документы': 'menu:my_documents', 
-        '💳 подписка': 'menu:subscription',
-        'ℹ️ помощь': 'menu:help'
-    }
-    
-    normalized_text = user_text.lower().strip()
-    
-    if normalized_text in command_mapping:
-        # Если пользователь отправил старую текстовую команду
-        callback_data = command_mapping[normalized_text]
-        
-        # Создаем имитацию callback для обработки
-        class MockCallback:
-            def __init__(self, message, data):
-                self.message = message
-                self.data = data
-                self.from_user = message.from_user
-                self.id = f"mock_{message.message_id}"
-        
-        mock_callback = MockCallback(message, callback_data)
-        
-        # Вызываем соответствующий обработчик
-        if callback_data == "menu:create_document":
-            await create_document_handler(mock_callback)
-        elif callback_data == "menu:my_documents":
-            await my_documents_handler(mock_callback)
-        elif callback_data == "menu:subscription":
-            await subscription_handler(mock_callback)
-        elif callback_data == "menu:help":
-            await help_handler(mock_callback)
-            
-    elif user_text.lower() in ['start', 'старт', 'меню', 'menu']:
-        await cmd_start(message)
-    else:
-        # Общее сообщение для неизвестных команд
-        text = (
-            "🔄 *Бот был обновлен!*\n\n"
-            "Теперь используйте *инлайн-кнопки* под сообщениями для навигации.\n\n"
-            "🚀 *Как пользоваться:*\n"
-            "1. Отправьте команду */start*\n"  
-            "2. Используйте кнопки *ПОД сообщением*\n"
-            "3. Выбирайте нужные действия\n\n"
-            "Ваши старые команды теперь работают через кнопки 👇"
-        )
-        await message.answer(text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
 
 # === Обработчик текстовых команд (без редактирования) ===
 @main_router.message()
