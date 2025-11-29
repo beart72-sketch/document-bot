@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
-from domain.entities.user import User
+from domain.models.user import User
 
 class UserResponse(BaseModel):
     id: str

@@ -1,6 +1,6 @@
 import asyncio
 import aiohttp
-from config import Config
+from core.config import Config
 
 async def get_bot_info():
     async with aiohttp.ClientSession() as session:

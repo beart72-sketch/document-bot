@@ -1,6 +1,6 @@
 from typing import Optional, List
 import logging
-from domain.entities.subscription import Subscription
+from domain.models.subscription import Subscription
 from domain.repositories.subscription_repository import SubscriptionRepository
 from infrastructure.database.models import SubscriptionModel
 from sqlalchemy import select

@@ -1,5 +1,5 @@
 from typing import Dict, Optional
-from domain.entities.menu import Menu, MenuType, MenuItem
+from domain.models.menu import Menu, MenuType, MenuItem
 
 class MenuService:
     def __init__(self):

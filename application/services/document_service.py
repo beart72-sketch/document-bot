@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional, Dict, Any
 from uuid import uuid4
 from datetime import datetime
-from domain.entities.document import Document, DocumentStatus, DocumentType
+from domain.models.document import Document, DocumentStatus, DocumentType
 from domain.repositories.document_repository import DocumentRepository
 from application.services.subscription_service import SubscriptionService
 

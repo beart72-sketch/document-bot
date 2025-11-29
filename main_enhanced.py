@@ -8,7 +8,7 @@ from infrastructure.database.repositories.user_repository_impl import UserReposi
 from infrastructure.database.repositories.subscription_repository_impl import SubscriptionRepositoryImpl
 from application.services.subscription_service import SubscriptionService
 from application.services.document_service import DocumentService
-from domain.entities.user import User
+from domain.models.user import User
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)

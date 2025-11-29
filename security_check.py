@@ -4,7 +4,7 @@
 
 import os
 import re
-from config import Config
+from core.config import Config
 
 def check_security():
     """Проверка безопасности конфигурации"""

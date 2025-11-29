@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional, List
-from domain.entities.document import Document
+from domain.models.document import Document
 
 class DocumentRepository(ABC):
     @abstractmethod

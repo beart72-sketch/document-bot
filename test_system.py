@@ -25,8 +25,8 @@ async def test_system():
         print(f"✅ База данных: {health}")
         
         # 3. Проверяем модели домена
-        from domain.entities.user import User
-        from domain.entities.value_objects import PersonalInfo
+        from domain.models.user import User
+        from domain.models.value_objects import PersonalInfo
         
         user = User(
             telegram_id=123456789,

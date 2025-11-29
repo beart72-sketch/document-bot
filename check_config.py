@@ -13,7 +13,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 try:
-    from config import config, print_config_summary
+    from core.config import config, print_config_summary
 except ImportError as e:
     print(f"❌ Ошибка импорта: {e}")
     print("📋 Убедитесь, что:")

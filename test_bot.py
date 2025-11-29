@@ -1,6 +1,6 @@
 import asyncio
 import aiohttp
-from config import Config
+from core.config import Config
 
 async def test_telegram_api():
     try:

@@ -2,8 +2,8 @@ from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 from uuid import uuid4
 import logging
-from domain.entities.subscription import Subscription, SubscriptionPlan, SubscriptionStatus
-from domain.entities.user import User
+from domain.models.subscription import Subscription, SubscriptionPlan, SubscriptionStatus
+from domain.models.user import User
 from domain.repositories.subscription_repository import SubscriptionRepository
 from domain.repositories.user_repository import UserRepository
 

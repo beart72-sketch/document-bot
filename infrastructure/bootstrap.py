@@ -9,8 +9,8 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from config import Config
-from handlers import register_handlers
+from core.config import Config
+from presentation.telegram.handlers import register_handlers
 from error_handlers import error_handler
 
 class AppContext(NamedTuple):

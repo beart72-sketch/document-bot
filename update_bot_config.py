@@ -4,7 +4,7 @@
 
 import os
 import sys
-from config import Config
+from core.config import Config
 
 def update_bot_files():
     """Обновляем файлы бота для использования новой конфигурации"""
@@ -27,8 +27,8 @@ from infrastructure.database.repositories.user_repository_impl import UserReposi
 from infrastructure.database.repositories.subscription_repository_impl import SubscriptionRepositoryImpl
 from application.services.subscription_service import SubscriptionService
 from application.services.document_service import DocumentService
-from domain.entities.user import User
-from config import Config
+from domain.models.user import User
+from core.config import Config
 
 # Загрузка переменных окружения
 load_dotenv()

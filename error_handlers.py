@@ -18,7 +18,7 @@ from aiogram.exceptions import (
     TelegramRetryAfter,
 )
 
-from config import config
+from core.config import config
 
 # Настраиваем логгер для ошибок
 logger = logging.getLogger(__name__)

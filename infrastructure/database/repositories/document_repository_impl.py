@@ -1,6 +1,6 @@
 from typing import Optional, List
 import logging
-from domain.entities.document import Document
+from domain.models.document import Document
 from domain.repositories.document_repository import DocumentRepository
 from infrastructure.database.models import DocumentModel
 from sqlalchemy import select

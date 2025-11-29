@@ -8,7 +8,7 @@ import time
 from typing import Any, Optional, Dict, List
 from functools import wraps
 import logging
-from config import config
+from core.config import config
 
 logger = logging.getLogger(__name__)
 

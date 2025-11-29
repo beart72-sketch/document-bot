@@ -1,0 +1,188 @@
+import logging
+from aiogram import Router, F
+from aiogram.types import Message, CallbackQuery
+from aiogram.filters import Command
+
+from presentation.telegram.keyboards import (
+    get_main_keyboard,
+    get_document_types_keyboard,
+    get_subscription_keyboard,
+    get_subscription_plans_keyboard,
+    get_back_keyboard
+)
+
+logger = logging.getLogger(__name__)
+main_router = Router()
+
+# ===== КОМАНДЫ =====
+@main_router.message(Command("start"))
+async def cmd_start(message: Message):
+    """Обработчик команды /start"""
+    logger.info(f"🎯 /start от {message.from_user.id}")
+    
+    welcome_text = (
+        "👋 *Добро пожаловать в бот для создания документов!*\n\n"
+        "🚀 *Используйте кнопки ПОД этим сообщением* для навигации\n\n"
+        "📄 *Создать документ* - выбор типа документа\n"
+        "📁 *Мои документы* - просмотр ваших документов\n"
+        "💳 *Подписка* - управление подпиской\n"
+        "ℹ️ *Помощь* - справка по использованию"
+    )
+    
+    logger.info(f"📤 Отправляем сообщение с инлайн-кнопками пользователю {message.from_user.id}")
+    await message.answer(welcome_text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
+    logger.info(f"✅ Сообщение с кнопками отправлено пользователю {message.from_user.id}")
+
+@main_router.message(Command("help"))
+async def cmd_help(message: Message):
+    """Обработчик команды /help"""
+    logger.info(f"🎯 /help от {message.from_user.id}")
+    
+    help_text = (
+        "ℹ️ *Помощь по использованию бота:*\n\n"
+        "🔸 *Команды:*\n"
+        "   /start - показать главное меню\n"
+        "   /help - эта справка\n"
+        "   /menu - принудительно показать меню\n\n"
+        "🔸 *Навигация:*\n"
+        "Используйте кнопки *ПОД сообщениями* для навигации\n\n"
+        "🔸 *Функции:*\n"
+        "📄 Создание юридических документов\n"
+        "📁 Управление вашими документами\n"
+        "💳 Подписка и тарифы"
+    )
+    
+    await message.answer(help_text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
+
+@main_router.message(Command("menu"))
+async def cmd_menu(message: Message):
+    """Команда для принудительного показа меню"""
+    logger.info(f"🎯 /menu от {message.from_user.id}")
+    text = "🏠 *Главное меню*\n\nВыберите действие:"
+    await message.answer(text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
+
+# ===== CALLBACK ОБРАБОТЧИКИ (ИНЛАЙН-КНОПКИ) =====
+@main_router.callback_query(F.data == "menu:main")
+async def main_menu_handler(callback: CallbackQuery):
+    """Главное меню"""
+    logger.info(f"🎯 Главное меню от {callback.from_user.id}")
+    text = "🏠 *Главное меню*\n\nВыберите действие:"
+    await callback.message.edit_text(text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
+    await callback.answer()
+
+@main_router.callback_query(F.data == "menu:create_document")
+async def create_document_handler(callback: CallbackQuery):
+    """Создание документа"""
+    logger.info(f"🎯 Создание документа от {callback.from_user.id}")
+    text = (
+        "📝 *Выберите тип документа:*\n\n"
+        "• *Договор* - для соглашений между сторонами\n"
+        "• *Акт* - для приемки-передачи\n" 
+        "• *Заявление* - для официальных обращений\n"
+        "• *Доверенность* - для передачи полномочий"
+    )
+    await callback.message.edit_text(text, reply_markup=get_document_types_keyboard(), parse_mode="Markdown")
+    await callback.answer("📝 Выбор типа документа")
+
+@main_router.callback_query(F.data == "menu:my_documents")
+async def my_documents_handler(callback: CallbackQuery):
+    """Мои документы"""
+    logger.info(f"🎯 Мои документы от {callback.from_user.id}")
+    text = "📁 *Ваши документы:*\n\nПока здесь пусто...\nСоздайте свой первый документ! 👆"
+    await callback.message.edit_text(text, reply_markup=get_back_keyboard(), parse_mode="Markdown")
+    await callback.answer("📁 Ваши документы")
+
+@main_router.callback_query(F.data == "menu:subscription")
+async def subscription_handler(callback: CallbackQuery):
+    """Подписка"""
+    logger.info(f"🎯 Подписка от {callback.from_user.id}")
+    text = "💳 *Управление подпиской*\n\nВыберите действие:"
+    await callback.message.edit_text(text, reply_markup=get_subscription_keyboard(), parse_mode="Markdown")
+    await callback.answer("💳 Подписка")
+
+@main_router.callback_query(F.data == "menu:help")
+async def help_handler(callback: CallbackQuery):
+    """Помощь"""
+    logger.info(f"🎯 Помощь от {callback.from_user.id}")
+    text = "ℹ️ *Помощь*\n\nВыберите действие в главном меню:"
+    await callback.message.edit_text(text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
+    await callback.answer("ℹ️ Помощь")
+
+@main_router.callback_query(F.data.startswith("document_type:"))
+async def document_type_handler(callback: CallbackQuery):
+    """Выбор типа документа"""
+    doc_type = callback.data.split(":")[1]
+    doc_types = {
+        "contract": "Договор",
+        "act": "Акт", 
+        "statement": "Заявление",
+        "proxy": "Доверенность"
+    }
+    logger.info(f"🎯 Выбор типа документа '{doc_type}' от {callback.from_user.id}")
+    text = f"📝 *Выбран тип документа:* {doc_types[doc_type]}\n\n⚙️ Эта функция находится в разработке..."
+    await callback.message.edit_text(text, reply_markup=get_back_keyboard(), parse_mode="Markdown")
+    await callback.answer(f"📝 {doc_types[doc_type]}")
+
+@main_router.callback_query(F.data.startswith("subscription:"))
+async def subscription_action_handler(callback: CallbackQuery):
+    """Действия подписки"""
+    action = callback.data.split(":")[1]
+    logger.info(f"🎯 Действие подписки '{action}' от {callback.from_user.id}")
+    if action == "buy":
+        text = "💳 *Выберите тариф подписки:*"
+        await callback.message.edit_text(text, reply_markup=get_subscription_plans_keyboard(), parse_mode="Markdown")
+    elif action == "stats":
+        text = (
+            "📊 *Статистика использования:*\n\n"
+            "• Создано документов: *0*\n"
+            "• Доступно документов: *10*\n" 
+            "• Тариф: *Бесплатный*\n"
+            "• Срок подписки: *не активна*"
+        )
+        await callback.message.edit_text(text, reply_markup=get_back_keyboard(), parse_mode="Markdown")
+    await callback.answer()
+
+@main_router.callback_query(F.data.startswith("subscription_plan:"))
+async def subscription_plan_handler(callback: CallbackQuery):
+    """Выбор тарифа"""
+    plan = callback.data.split(":")[1]
+    plan_names = {
+        "basic": "🟢 Базовый (299₽/мес)",
+        "pro": "🔵 Про (599₽/мес)",
+        "premium": "🟣 Премиум (999₽/мес)"
+    }
+    logger.info(f"🎯 Выбор тарифа '{plan}' от {callback.from_user.id}")
+    text = f"💳 *Выбран тариф:* {plan_names[plan]}\n\n⚙️ Функция оплаты находится в разработке..."
+    await callback.message.edit_text(text, reply_markup=get_back_keyboard(), parse_mode="Markdown")
+    await callback.answer(f"💳 {plan_names[plan]}")
+
+# ===== FALLBACK ОБРАБОТЧИК =====
+@main_router.message()
+async def unknown_message_handler(message: Message):
+    """Обработчик неизвестных сообщений"""
+    user_text = message.text or ""
+    logger.info(f"🔴 Неизвестный текст: '{user_text}' от {message.from_user.id}")
+    
+    if user_text.lower() in ['start', 'старт', 'меню', 'menu']:
+        # Если пользователь написал "start" без слэша
+        await cmd_start(message)
+    elif any(icon in user_text for icon in ['📄', '📁', '💳', 'ℹ️']):
+        # Если пользователь нажал старую Reply-кнопку
+        text = (
+            "🔄 *Бот обновлен!*\n\n"
+            "Теперь используйте *инлайн-кнопки* под сообщениями.\n\n"
+            "Отправьте команду */start* чтобы увидеть новое меню 👇"
+        )
+        await message.answer(text, parse_mode="Markdown")
+    else:
+        text = (
+            "❌ *Неизвестная команда*\n\n"
+            "🚀 *Для работы с ботом:*\n"
+            "1. Отправьте команду */start*\n"
+            "2. Используйте кнопки *ПОД сообщениями*\n\n"
+            "🔸 *Доступные команды:*\n"
+            "/start - главное меню\n"
+            "/help - справка\n"
+            "/menu - показать меню"
+        )
+        await message.answer(text, parse_mode="Markdown")

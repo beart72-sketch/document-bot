@@ -6,7 +6,7 @@ import json
 from typing import Dict, Any
 from aiogram import types
 from metrics import metrics_collector, health_checker, performance_monitor
-from config import config
+from core.config import config
 
 
 class MetricsAPI:

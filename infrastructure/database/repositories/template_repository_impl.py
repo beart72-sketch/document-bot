@@ -1,5 +1,5 @@
 from typing import Optional, List
-from domain.entities.document_template import DocumentTemplate
+from domain.models.document_template import DocumentTemplate
 from domain.repositories.template_repository import TemplateRepository
 from infrastructure.database.models import DocumentTemplateModel
 from sqlalchemy import select

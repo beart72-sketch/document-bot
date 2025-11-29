@@ -1,5 +1,5 @@
 from typing import Optional
-from domain.entities.user import User
+from domain.models.user import User
 from domain.repositories.user_repository import UserRepository
 from application.dtos.user_dtos import UserResponse
 

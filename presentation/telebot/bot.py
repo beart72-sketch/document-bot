@@ -8,7 +8,7 @@ import asyncio
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from infrastructure.database.database import database
-from config import Config
+from core.config import Config
 
 # Инициализация бота
 bot = AsyncTeleBot(Config.TOKEN)

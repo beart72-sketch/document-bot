@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 from datetime import datetime
-from domain.entities.document import Document, DocumentStatus, DocumentType
+from domain.models.document import Document, DocumentStatus, DocumentType
 
 class CreateDocumentRequest(BaseModel):
     user_telegram_id: int

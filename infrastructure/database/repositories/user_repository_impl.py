@@ -1,6 +1,6 @@
 from typing import Optional, List
 import logging
-from domain.entities.user import User
+from domain.models.user import User
 from domain.repositories.user_repository import UserRepository
 from infrastructure.database.models import UserModel
 from sqlalchemy import select

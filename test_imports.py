@@ -7,13 +7,13 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 
 try:
-    from domain.entities.user import User
+    from domain.models.user import User
     print("✅ User imported")
     
-    from domain.entities.document import Document
+    from domain.models.document import Document
     print("✅ Document imported")
     
-    from domain.entities.document_template import DocumentTemplate
+    from domain.models.document_template import DocumentTemplate
     print("✅ DocumentTemplate imported")
     
     from domain.repositories.user_repository import UserRepository

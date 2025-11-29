@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional, List
-from domain.entities.document_template import DocumentTemplate
+from domain.models.document_template import DocumentTemplate
 
 class TemplateRepository(ABC):
     """Порт для репозитория шаблонов"""

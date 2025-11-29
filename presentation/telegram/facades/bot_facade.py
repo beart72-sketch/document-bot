@@ -5,9 +5,9 @@ from presentation.telegram.keyboards.main_keyboards import MainKeyboards
 from application.services.user_service import UserService
 from application.services.document_service import DocumentService
 from application.services.subscription_service import SubscriptionService
-from domain.entities.document import DocumentType
-from domain.entities.menu import MenuType
-from domain.entities.subscription import SubscriptionPlan
+from domain.models.document import DocumentType
+from domain.models.menu import MenuType
+from domain.models.subscription import SubscriptionPlan
 
 class BotFacade:
     """Фасад для работы с ботом"""

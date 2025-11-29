@@ -1,6 +1,6 @@
 from typing import Optional
-from domain.entities.document import Document, DocumentStatus, DocumentType
-from domain.entities.user import User
+from domain.models.document import Document, DocumentStatus, DocumentType
+from domain.models.user import User
 from domain.repositories.document_repository import DocumentRepository
 from domain.repositories.user_repository import UserRepository
 from domain.repositories.template_repository import TemplateRepository

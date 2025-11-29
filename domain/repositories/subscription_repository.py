@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional, List
-from domain.entities.subscription import Subscription
+from domain.models.subscription import Subscription
 
 class SubscriptionRepository(ABC):
     @abstractmethod
