@@ -1,16 +1,6 @@
-"""
-Основные обработчики бота — с подпиской, генерацией и аудитом
-Совместим с вашей текущей архитектурой
-"""
-
 import logging
-import hashlib
-import json
-import tempfile
-import os
-from datetime import datetime
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, FSInputFile
+from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 
 from presentation.telegram.keyboards import (
@@ -20,8 +10,6 @@ from presentation.telegram.keyboards import (
     get_subscription_plans_keyboard,
     get_back_keyboard
 )
-from infrastructure.database.audit_db import audit_db
-from services.document_generator import generate_report_document
 
 logger = logging.getLogger(__name__)
 main_router = Router()
@@ -41,30 +29,12 @@ async def cmd_start(message: Message):
         "ℹ️ *Помощь* - справка по использованию"
     )
     
-    logger.info(f"📤 Отправляем сообщение с инлайн-кнопками пользователю {message.from_user.id}")
     await message.answer(welcome_text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
-    logger.info(f"✅ Сообщение с кнопками отправлено пользователю {message.from_user.id}")
 
 @main_router.message(Command("help"))
 async def cmd_help(message: Message):
     """Обработчик команды /help"""
-    logger.info(f"🎯 /help от {message.from_user.id}")
-    
-    help_text = (
-        "ℹ️ *Помощь по использованию бота:*\n\n"
-        "🔸 *Команды:*\n"
-        "   /start - показать главное меню\n"
-        "   /help - эта справка\n"
-        "   /menu - принудительно показать меню\n\n"
-        "🔸 *Навигация:*\n"
-        "Используйте кнопки *ПОД сообщениями* для навигации\n\n"
-        "🔸 *Функции:*\n"
-        "📄 Создание юридических документов\n"
-        "📁 Управление вашими документами\n"
-        "💳 Подписка и тарифы"
-    )
-    
-    await message.answer(help_text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
+    await show_detailed_help(message)
 
 @main_router.message(Command("menu"))
 async def cmd_menu(message: Message):
@@ -73,7 +43,50 @@ async def cmd_menu(message: Message):
     text = "🏠 *Главное меню*\n\nВыберите действие:"
     await message.answer(text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
 
-# ===== CALLBACK ОБРАБОТЧИКИ (ИНЛАЙН-КНОПКИ) =====
+# ===== ДЕТАЛЬНАЯ ПОМОЩЬ =====
+async def show_detailed_help(message_or_callback):
+    """Показать детальную справку"""
+    help_text = (
+        "ℹ️ *ПОМОЩЬ И ИНСТРУКЦИЯ*\n\n"
+        
+        "🔸 *ОСНОВНЫЕ ВОЗМОЖНОСТИ:*\n"
+        "• 📄 *Создание документов* - юридические шаблоны\n"  
+        "• 📁 *Мои документы* - история созданных файлов\n"
+        "• 💳 *Подписка* - тарифы и управление\n\n"
+        
+        "🔸 *КАК СОЗДАТЬ ДОКУМЕНТ:*\n"
+        "1. Нажмите '📄 Создать документ'\n"
+        "2. Выберите тип документа:\n"
+        "   - *Договор* - соглашения между сторонами\n"
+        "   - *Акт* - приемка-передача\n"
+        "   - *Заявление* - официальные обращения\n"
+        "   - *Доверенность* - передача полномочий\n"
+        "3. Следуйте инструкциям бота\n"
+        "4. Получите готовый документ\n\n"
+        
+        "🔸 *ТИПЫ ДОКУМЕНТОВ:*\n"
+        "• *Договор* - для бизнес-соглашений\n"
+        "• *Акт* - для фиксации фактов\n" 
+        "• *Заявление* - для официальных обращений\n"
+        "• *Доверенность* - для представительства\n\n"
+        
+        "🔸 *КОМАНДЫ:*\n"
+        "*/start* - главное меню\n"
+        "*/help* - эта справка\n" 
+        "*/menu* - показать меню\n\n"
+        
+        "🔸 *ПОДДЕРЖКА:*\n"
+        "По вопросам работы бота обращайтесь к администратору"
+    )
+    
+    if isinstance(message_or_callback, Message):
+        await message_or_callback.answer(help_text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
+    else:
+        # Это callback
+        await message_or_callback.message.edit_text(help_text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
+        await message_or_callback.answer()
+
+# ===== CALLBACK ОБРАБОТЧИКИ =====
 @main_router.callback_query(F.data == "menu:main")
 async def main_menu_handler(callback: CallbackQuery):
     """Главное меню"""
@@ -86,158 +99,180 @@ async def main_menu_handler(callback: CallbackQuery):
 async def create_document_handler(callback: CallbackQuery):
     """Создание документа"""
     logger.info(f"🎯 Создание документа от {callback.from_user.id}")
+    
     text = (
-        "📝 *Выберите тип документа:*\n\n"
-        "• *Договор* - для соглашений между сторонами\n"
-        "• *Акт* - для приемки-передачи\n" 
+        "📝 *Создание документа*\n\n"
+        "Выберите тип документа:\n\n"
+        "• *Договор* - для соглашений между сторонами\n"  
+        "• *Акт* - для приемки-передачи товаров/услуг\n"
         "• *Заявление* - для официальных обращений\n"
-        "• *Доверенность* - для передачи полномочий"
+        "• *Доверенность* - для передачи полномочий\n\n"
+        "Каждый тип имеет свой шаблон и набор полей"
     )
+    
     await callback.message.edit_text(text, reply_markup=get_document_types_keyboard(), parse_mode="Markdown")
-    await callback.answer("📝 Выбор типа документа")
+    await callback.answer()
 
 @main_router.callback_query(F.data == "menu:my_documents")
 async def my_documents_handler(callback: CallbackQuery):
     """Мои документы"""
     logger.info(f"🎯 Мои документы от {callback.from_user.id}")
-    text = "📁 *Ваши документы:*\n\nПока здесь пусто...\nСоздайте свой первый документ! 👆"
+    
+    text = (
+        "📁 *Ваши документы*\n\n"
+        "Здесь будут отображаться все созданные вами документы.\n\n"
+        "⚡ *Сейчас в разработке:*\n"
+        "• История документов\n"
+        "• Поиск по документам\n" 
+        "• Скачивание файлов\n"
+        "• Управление документами\n\n"
+        "Создайте свой первый документ! 👆"
+    )
+    
     await callback.message.edit_text(text, reply_markup=get_back_keyboard(), parse_mode="Markdown")
-    await callback.answer("📁 Ваши документы")
+    await callback.answer()
 
 @main_router.callback_query(F.data == "menu:subscription")
 async def subscription_handler(callback: CallbackQuery):
     """Подписка"""
     logger.info(f"🎯 Подписка от {callback.from_user.id}")
-    text = "💳 *Управление подпиской*\n\nВыберите действие:"
+    
+    text = (
+        "💳 *Управление подпиской*\n\n"
+        "Доступные функции:\n\n"
+        "• Просмотр текущего тарифа\n"
+        "• Статистика использования\n"
+        "• Покупка подписки\n"
+        "• История платежей\n\n"
+        "Выберите действие:"
+    )
+    
     await callback.message.edit_text(text, reply_markup=get_subscription_keyboard(), parse_mode="Markdown")
-    await callback.answer("💳 Подписка")
+    await callback.answer()
 
 @main_router.callback_query(F.data == "menu:help")
 async def help_handler(callback: CallbackQuery):
     """Помощь"""
     logger.info(f"🎯 Помощь от {callback.from_user.id}")
-    text = "ℹ️ *Помощь*\n\nВыберите действие в главном меню:"
-    await callback.message.edit_text(text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
-    await callback.answer("ℹ️ Помощь")
-
-@main_router.callback_query(F.data.startswith("document_type:"))
-async def document_type_handler(callback: CallbackQuery):
-    """Выбор типа документа + генерация"""
-    doc_type = callback.data.split(":")[1]
-    doc_types = {
-        "contract": "Договор",
-        "act": "Акт", 
-        "statement": "Заявление",
-        "proxy": "Доверенность"
-    }
-    logger.info(f"🎯 Выбор типа документа '{doc_type}' от {callback.from_user.id}")
-    
-    try:
-        # Генерация документа
-        full_name = callback.from_user.full_name or f"ID{callback.from_user.id}"
-        document_bytes = generate_report_document(
-            title=f"{doc_types[doc_type]}",
-            author=full_name,
-            content=f"Документ типа «{doc_types[doc_type]}» сгенерирован {full_name} в системе «Судебный Кейс»."
-        )
-        
-        # Временный файл
-        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
-            tmp.write(document_bytes)
-            tmp_path = tmp.name
-        
-        # Аудит
-        doc_hash = hashlib.sha256(document_bytes).hexdigest()[:16]
-        audit_id = audit_db.log_action(
-            user_id=callback.from_user.id,
-            action=f"generate_{doc_type}",
-            meta={"type": doc_type, "hash": doc_hash}  # ✅ meta, не details/metadata
-        )
-        logger.info(f"✅ Аудит ID={audit_id} | Пользователь={callback.from_user.id} | Документ={doc_hash}")
-        
-        # Отправка
-        document = FSInputFile(tmp_path, filename=f"{doc_type}_{datetime.now():%d%m%Y}.docx")
-        await callback.message.answer_document(
-            document=document,
-            caption=f"📄 Ваш документ: {doc_types[doc_type]}"
-        )
-        
-        # Очистка
-        os.unlink(tmp_path)
-        await callback.answer(f"✅ {doc_types[doc_type]} создан!")
-        
-    except Exception as e:
-        logger.error(f"❌ Ошибка генерации: {e}", exc_info=True)
-        await callback.message.answer("⚠️ Ошибка при создании документа.")
-        await callback.answer("❌ Ошибка")
+    await show_detailed_help(callback)
 
 @main_router.callback_query(F.data.startswith("subscription:"))
 async def subscription_action_handler(callback: CallbackQuery):
-    """Действия подписки — ИСПРАВЛЕНО"""
+    """Действия подписки"""
     action = callback.data.split(":")[1]
     logger.info(f"🎯 Действие подписки '{action}' от {callback.from_user.id}")
     
-    # ✅ ИСПРАВЛЕНО: meta вместо details
-    try:
-        audit_db.log_action(
-            user_id=callback.from_user.id,
-            action=f"subscription_{action}",
-            meta={"callback": callback.data}  # ✅ meta
-        )
-    except Exception as e:
-        logger.warning(f"⚠️ Не удалось записать в аудит: {e}")
-    
     if action == "buy":
-        text = "💳 *Выберите тариф подписки:*"
+        text = (
+            "💳 *Выберите тариф подписки*\n\n"
+            "🟢 *Базовый* - 299₽/мес\n"
+            "   • 10 документов в месяц\n"
+            "   • Базовые шаблоны\n\n"
+            "🔵 *Про* - 599₽/мес\n"
+            "   • 50 документов в месяц\n" 
+            "   • Расширенные шаблоны\n"
+            "   • Приоритетная поддержка\n\n"
+            "🟣 *Премиум* - 999₽/мес\n"
+            "   • Безлимитное создание\n"
+            "   • Все шаблоны\n"
+            "   • Персональная поддержка"
+        )
         await callback.message.edit_text(text, reply_markup=get_subscription_plans_keyboard(), parse_mode="Markdown")
     elif action == "stats":
         text = (
-            "📊 *Статистика использования:*\n\n"
+            "📊 *Ваша статистика*\n\n"
             "• Создано документов: *0*\n"
-            "• Доступно документов: *10*\n" 
+            "• Доступно документов: *10*\n"
             "• Тариф: *Бесплатный*\n"
-            "• Срок подписки: *не активна*"
+            "• Срок подписки: *не активна*\n\n"
+            "⚡ *Бесплатный тариф включает:*\n"
+            "• 10 документов в месяц\n"
+            "• Базовые шаблоны\n"
+            "• Стандартная поддержка"
         )
         await callback.message.edit_text(text, reply_markup=get_back_keyboard(), parse_mode="Markdown")
     await callback.answer()
 
 @main_router.callback_query(F.data.startswith("subscription_plan:"))
 async def subscription_plan_handler(callback: CallbackQuery):
-    """Выбор тарифа — ИСПРАВЛЕНО"""
+    """Выбор тарифа"""
     plan = callback.data.split(":")[1]
     plan_names = {
         "basic": "🟢 Базовый (299₽/мес)",
-        "pro": "🔵 Про (599₽/мес)",
+        "pro": "🔵 Про (599₽/мес)", 
         "premium": "🟣 Премиум (999₽/мес)"
     }
+    
+    plan_details = {
+        "basic": "10 документов/мес, базовые шаблоны",
+        "pro": "50 документов/мес, расширенные шаблоны", 
+        "premium": "Безлимит, все шаблоны, премиум-поддержка"
+    }
+    
     logger.info(f"🎯 Выбор тарифа '{plan}' от {callback.from_user.id}")
     
-    # ✅ ИСПРАВЛЕНО: meta вместо details
-    try:
-        audit_db.log_action(
-            user_id=callback.from_user.id,
-            action=f"select_plan_{plan}",
-            meta={"plan": plan}  # ✅ meta
-        )
-    except Exception as e:
-        logger.warning(f"⚠️ Не удалось записать в аудит: {e}")
+    text = (
+        f"💳 *Выбран тариф:* {plan_names[plan]}\n\n"
+        f"⚡ *Включает:* {plan_details[plan]}\n\n"
+        "⚙️ *Функция оплаты находится в разработке*\n\n"
+        "Скоро здесь будет интеграция с платежной системой"
+    )
     
-    text = f"💳 *Выбран тариф:* {plan_names[plan]}\n\n⚙️ Функция оплаты находится в разработке..."
     await callback.message.edit_text(text, reply_markup=get_back_keyboard(), parse_mode="Markdown")
     await callback.answer(f"💳 {plan_names[plan]}")
 
-# ===== FALLBACK ОБРАБОТЧИК =====
+# ===== УЛУЧШЕННЫЙ FALLBACK ОБРАБОТЧИК =====
 @main_router.message()
 async def unknown_message_handler(message: Message):
     """Обработчик неизвестных сообщений"""
     user_text = message.text or ""
     logger.info(f"🔴 Неизвестный текст: '{user_text}' от {message.from_user.id}")
     
-    if user_text.lower() in ['start', 'старт', 'меню', 'menu']:
+    # Обработка старых текстовых команд
+    command_mapping = {
+        '📋 создать документ': 'menu:create_document',
+        '📁 мои документы': 'menu:my_documents', 
+        '💳 подписка': 'menu:subscription',
+        'ℹ️ помощь': 'menu:help'
+    }
+    
+    normalized_text = user_text.lower().strip()
+    
+    if normalized_text in command_mapping:
+        # Если пользователь отправил старую текстовую команду
+        callback_data = command_mapping[normalized_text]
+        
+        # Создаем имитацию callback для обработки
+        class MockCallback:
+            def __init__(self, message, data):
+                self.message = message
+                self.data = data
+                self.from_user = message.from_user
+                self.id = f"mock_{message.message_id}"
+        
+        mock_callback = MockCallback(message, callback_data)
+        
+        # Вызываем соответствующий обработчик
+        if callback_data == "menu:create_document":
+            await create_document_handler(mock_callback)
+        elif callback_data == "menu:my_documents":
+            await my_documents_handler(mock_callback)
+        elif callback_data == "menu:subscription":
+            await subscription_handler(mock_callback)
+        elif callback_data == "menu:help":
+            await help_handler(mock_callback)
+            
+    elif user_text.lower() in ['start', 'старт', 'меню', 'menu']:
         await cmd_start(message)
-    elif any(icon in user_text for icon in ['📄', '📁', '💳', 'ℹ️']):
-        text = "🔄 *Бот обновлен!*\n\nОтправьте команду */start* чтобы увидеть новое меню 👇"
-        await message.answer(text, parse_mode="Markdown")
     else:
-        text = "❌ *Неизвестная команда*\n\nОтправьте */start* для главного меню"
-        await message.answer(text, parse_mode="Markdown")
+        # Общее сообщение для неизвестных команд
+        text = (
+            "🔄 *Бот был обновлен!*\n\n"
+            "Теперь используйте *инлайн-кнопки* под сообщениями для навигации.\n\n"
+            "🚀 *Как пользоваться:*\n"
+            "1. Отправьте команду */start*\n"  
+            "2. Используйте кнопки *ПОД сообщением*\n"
+            "3. Выбирайте нужные действия\n\n"
+            "Ваши старые команды теперь работают через кнопки 👇"
+        )
+        await message.answer(text, reply_markup=get_main_keyboard(), parse_mode="Markdown")
