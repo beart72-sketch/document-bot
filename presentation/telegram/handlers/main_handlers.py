@@ -1,6 +1,16 @@
+"""
+Основные обработчики бота — с подпиской, генерацией и аудитом
+Совместим с вашей текущей архитектурой
+"""
+
 import logging
+import hashlib
+import json
+import tempfile
+import os
+from datetime import datetime
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.filters import Command
 
 from presentation.telegram.keyboards import (
@@ -10,6 +20,8 @@ from presentation.telegram.keyboards import (
     get_subscription_plans_keyboard,
     get_back_keyboard
 )
+from infrastructure.database.audit_db import audit_db
+from services.document_generator import generate_report_document
 
 logger = logging.getLogger(__name__)
 main_router = Router()
@@ -110,7 +122,7 @@ async def help_handler(callback: CallbackQuery):
 
 @main_router.callback_query(F.data.startswith("document_type:"))
 async def document_type_handler(callback: CallbackQuery):
-    """Выбор типа документа"""
+    """Выбор типа документа + генерация"""
     doc_type = callback.data.split(":")[1]
     doc_types = {
         "contract": "Договор",
@@ -119,15 +131,62 @@ async def document_type_handler(callback: CallbackQuery):
         "proxy": "Доверенность"
     }
     logger.info(f"🎯 Выбор типа документа '{doc_type}' от {callback.from_user.id}")
-    text = f"📝 *Выбран тип документа:* {doc_types[doc_type]}\n\n⚙️ Эта функция находится в разработке..."
-    await callback.message.edit_text(text, reply_markup=get_back_keyboard(), parse_mode="Markdown")
-    await callback.answer(f"📝 {doc_types[doc_type]}")
+    
+    try:
+        # Генерация документа
+        full_name = callback.from_user.full_name or f"ID{callback.from_user.id}"
+        document_bytes = generate_report_document(
+            title=f"{doc_types[doc_type]}",
+            author=full_name,
+            content=f"Документ типа «{doc_types[doc_type]}» сгенерирован {full_name} в системе «Судебный Кейс»."
+        )
+        
+        # Временный файл
+        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
+            tmp.write(document_bytes)
+            tmp_path = tmp.name
+        
+        # Аудит
+        doc_hash = hashlib.sha256(document_bytes).hexdigest()[:16]
+        audit_id = audit_db.log_action(
+            user_id=callback.from_user.id,
+            action=f"generate_{doc_type}",
+            meta={"type": doc_type, "hash": doc_hash}  # ✅ meta, не details/metadata
+        )
+        logger.info(f"✅ Аудит ID={audit_id} | Пользователь={callback.from_user.id} | Документ={doc_hash}")
+        
+        # Отправка
+        document = FSInputFile(tmp_path, filename=f"{doc_type}_{datetime.now():%d%m%Y}.docx")
+        await callback.message.answer_document(
+            document=document,
+            caption=f"📄 Ваш документ: {doc_types[doc_type]}"
+        )
+        
+        # Очистка
+        os.unlink(tmp_path)
+        await callback.answer(f"✅ {doc_types[doc_type]} создан!")
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка генерации: {e}", exc_info=True)
+        await callback.message.answer("⚠️ Ошибка при создании документа.")
+        await callback.answer("❌ Ошибка")
 
 @main_router.callback_query(F.data.startswith("subscription:"))
 async def subscription_action_handler(callback: CallbackQuery):
-    """Действия подписки"""
+    """Действия подписки — ИСПРАВЛЕНО"""
     action = callback.data.split(":")[1]
     logger.info(f"🎯 Действие подписки '{action}' от {callback.from_user.id}")
+    
+    # ✅ ИСПРАВЛЕНО: meta вместо details
+    try:
+        audit_db.log_action(
+            user_id=callback.from_user.id,
+            action=f"subscription_{action}",
+            meta={"callback": callback.data}  # ✅ meta
+        )
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось записать в аудит: {e}")
+    
     if action == "buy":
         text = "💳 *Выберите тариф подписки:*"
         await callback.message.edit_text(text, reply_markup=get_subscription_plans_keyboard(), parse_mode="Markdown")
@@ -144,7 +203,7 @@ async def subscription_action_handler(callback: CallbackQuery):
 
 @main_router.callback_query(F.data.startswith("subscription_plan:"))
 async def subscription_plan_handler(callback: CallbackQuery):
-    """Выбор тарифа"""
+    """Выбор тарифа — ИСПРАВЛЕНО"""
     plan = callback.data.split(":")[1]
     plan_names = {
         "basic": "🟢 Базовый (299₽/мес)",
@@ -152,6 +211,17 @@ async def subscription_plan_handler(callback: CallbackQuery):
         "premium": "🟣 Премиум (999₽/мес)"
     }
     logger.info(f"🎯 Выбор тарифа '{plan}' от {callback.from_user.id}")
+    
+    # ✅ ИСПРАВЛЕНО: meta вместо details
+    try:
+        audit_db.log_action(
+            user_id=callback.from_user.id,
+            action=f"select_plan_{plan}",
+            meta={"plan": plan}  # ✅ meta
+        )
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось записать в аудит: {e}")
+    
     text = f"💳 *Выбран тариф:* {plan_names[plan]}\n\n⚙️ Функция оплаты находится в разработке..."
     await callback.message.edit_text(text, reply_markup=get_back_keyboard(), parse_mode="Markdown")
     await callback.answer(f"💳 {plan_names[plan]}")
@@ -164,25 +234,10 @@ async def unknown_message_handler(message: Message):
     logger.info(f"🔴 Неизвестный текст: '{user_text}' от {message.from_user.id}")
     
     if user_text.lower() in ['start', 'старт', 'меню', 'menu']:
-        # Если пользователь написал "start" без слэша
         await cmd_start(message)
     elif any(icon in user_text for icon in ['📄', '📁', '💳', 'ℹ️']):
-        # Если пользователь нажал старую Reply-кнопку
-        text = (
-            "🔄 *Бот обновлен!*\n\n"
-            "Теперь используйте *инлайн-кнопки* под сообщениями.\n\n"
-            "Отправьте команду */start* чтобы увидеть новое меню 👇"
-        )
+        text = "🔄 *Бот обновлен!*\n\nОтправьте команду */start* чтобы увидеть новое меню 👇"
         await message.answer(text, parse_mode="Markdown")
     else:
-        text = (
-            "❌ *Неизвестная команда*\n\n"
-            "🚀 *Для работы с ботом:*\n"
-            "1. Отправьте команду */start*\n"
-            "2. Используйте кнопки *ПОД сообщениями*\n\n"
-            "🔸 *Доступные команды:*\n"
-            "/start - главное меню\n"
-            "/help - справка\n"
-            "/menu - показать меню"
-        )
+        text = "❌ *Неизвестная команда*\n\nОтправьте */start* для главного меню"
         await message.answer(text, parse_mode="Markdown")
