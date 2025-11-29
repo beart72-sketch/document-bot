@@ -1,79 +1,129 @@
-"""Инициализация приложения — адаптировано под ваш .env"""
-
+"""Bootstrap application."""
 import logging
-import os
-from typing import NamedTuple
-
-from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-from aiogram.fsm.storage.memory import MemoryStorage
-
-from core.config import Config
-from presentation.telegram.handlers import register_handlers
-from error_handlers import error_handler
-
-class AppContext(NamedTuple):
-    bot: Bot
-    dp: Dispatcher
-    config: Config
+from infrastructure.cache import create_cache
 
 logger = logging.getLogger(__name__)
 
-async def initialize_app() -> AppContext:
-    logger.info("🔧 Начало инициализации приложения...")
+class Application:
+    """Main application class."""
     
-    config = Config()
-    debug_mode = getattr(config, 'DEBUG', os.getenv("DEBUG", "false").lower() == "true")
-    if debug_mode:
-        logging.getLogger().setLevel(logging.DEBUG)
-        logger.info("🟢 Режим отладки: ВКЛ")
-    
-    # 🔑 Ищем токен в порядке приоритета (ваш .env использует TELEGRAM_BOT_TOKEN)
-    token = None
-    for attr in ["TELEGRAM_BOT_TOKEN", "BOT_TOKEN", "TELEGRAM_TOKEN"]:
-        if hasattr(config, attr):
-            token = getattr(config, attr)
-        if not token:
-            token = os.getenv(attr)
-        if token:
-            break
-    
-    if not token:
-        raise ValueError("❌ Токен бота не найден. Проверьте TELEGRAM_BOT_TOKEN в .env")
-    
-    admin_ids = _parse_admin_ids(config)
-    if not admin_ids:
-        logger.warning("⚠️ ADMIN_IDS не заданы")
+    def __init__(self, config: dict):
+        self.config = config
+        self.bot = None
+        self.dispatcher = None
+        self.cache = None
+        self.metrics = None
+        self.metrics_scheduler = None
+        
+    async def setup_logging(self):
+        """Setup application logging."""
+        from infrastructure.logging import setup_logging, setup_log_cleanup
+        
+        # Get logging configuration
+        log_config = self.config.get('logging', {})
+        log_level = log_config.get('level', 'INFO')
+        log_to_file = log_config.get('file_enabled', True)
+        
+        # Setup logging
+        setup_logging(
+            log_level=log_level,
+            log_to_file=log_to_file,
+            log_dir='logs'
+        )
+        
+        # Cleanup old logs
+        setup_log_cleanup(max_age_days=30)
+        
+        logger.info(f"✅ Logging configured. Level: {log_level}, File: {log_to_file}")
 
-    bot = Bot(
-        token=token,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-    )
-    storage = MemoryStorage()
-    dp = Dispatcher(storage=storage)
+    async def setup_cache(self):
+        """Setup cache."""
+        try:
+            from infrastructure.cache import create_cache
+            self.cache = create_cache()
+            logger.info("✅ Cache initialized")
+        except Exception as e:
+            logger.error(f"❌ Cache setup failed: {e}")
+            raise
     
-    await register_handlers(dp)
-    logger.info("✅ Обработчики зарегистрированы")
+    async def setup_error_handling(self):
+        """Setup error handling middleware."""
+        from infrastructure.error_handling import ErrorHandlingMiddleware
+        
+        # Add error handling middleware to dispatcher
+        error_middleware = ErrorHandlingMiddleware()
+        self.dispatcher.update.outer_middleware(error_middleware)
+        logger.info("✅ Error handling middleware registered")
     
-    @dp.shutdown()
-    async def on_shutdown():
-        logger.info("♻️ Graceful shutdown...")
-        await bot.session.close()
-        logger.info("✅ Ресурсы освобождены")
-    
-    logger.info("✅ Инициализация завершена")
-    return AppContext(bot=bot, dp=dp, config=config)
+    async def setup_request_logging(self):
+        """Setup request logging middleware."""
+        from infrastructure.logging import RequestLoggingMiddleware
+        
+        # Add request logging middleware
+        request_middleware = RequestLoggingMiddleware()
+        self.dispatcher.update.outer_middleware(request_middleware)
+        logger.info("✅ Request logging middleware registered")
 
-def _parse_admin_ids(config):
-    for attr in ["ADMIN_IDS", "ADMINS"]:
-        if hasattr(config, attr):
-            ids = getattr(config, attr)
-            if isinstance(ids, str):
-                return [int(x.strip()) for x in ids.split(",") if x.strip().isdigit()]
-            elif isinstance(ids, (list, tuple)):
-                return [int(x) for x in ids if str(x).isdigit()]
-            elif isinstance(ids, int):
-                return [ids]
-    env_ids = os.getenv("ADMIN_IDS", "")
-    return [int(x) for x in env_ids.split(",") if x.strip().isdigit()]
+    async def setup_metrics(self):
+        """Setup metrics collection."""
+        if not self.config.get('metrics', {}).get('enabled', True):
+            logger.info("⚠️ Metrics disabled")
+            return
+            
+        from infrastructure.metrics import TelegramMetrics, MetricsScheduler
+        
+        # Initialize metrics
+        self.metrics = TelegramMetrics()
+        self.metrics_scheduler = MetricsScheduler(self.metrics)
+        
+        # Pass metrics to context
+        self.dispatcher['metrics'] = self.metrics
+        
+        # Start metrics collection
+        await self.metrics_scheduler.start()
+        logger.info("✅ Metrics system initialized")
+
+    async def setup(self):
+        """Setup application."""
+        # Setup logging first (so we can log everything else)
+        await self.setup_logging()
+        
+        logger.info("🔧 Starting application initialization...")
+        
+        # Initialize cache
+        await self.setup_cache()
+        
+        # Create bot and dispatcher
+        from presentation.telegram.bot import create_bot, create_dispatcher
+        from presentation.telegram.handlers import setup_handlers
+        
+        self.bot = create_bot(self.config['telegram']['bot_token'])
+        self.dispatcher = create_dispatcher()
+        
+        # Pass services to context
+        self.dispatcher['cache'] = self.cache
+        
+        # Setup request logging
+        await self.setup_request_logging()
+        
+        # Setup error handling
+        await self.setup_error_handling()
+        
+        # Setup metrics
+        await self.setup_metrics()
+        
+        # Setup handlers
+        setup_handlers(self.dispatcher)
+        logger.info("✅ Handlers registered")
+        
+        logger.info("✅ Initialization completed")
+    
+    async def cleanup(self):
+        """Cleanup resources."""
+        if self.cache:
+            await self.cache.close()
+            logger.info("✅ Cache closed")
+        
+        if hasattr(self, 'metrics_scheduler'):
+     await self.metrics_scheduler.stop()
+            logger.info("✅ Metrics scheduler stopped")

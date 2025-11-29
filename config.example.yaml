@@ -1,0 +1,18 @@
+telegram:
+  bot_token: "your_bot_token_here"
+  admin_ids:
+    - 1085771559
+  webhook_url: ""
+
+redis:
+  enabled: true
+  url: "redis://localhost:6379"
+  default_ttl: 3600
+
+logging:
+  level: "INFO"
+  file_enabled: true
+
+metrics:
+  enabled: true
+  prometheus_enabled: false
