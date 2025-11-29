@@ -50,20 +50,27 @@ class AuditDatabase:
             
             conn.commit()
 
-    def log_action(self, user_id: int, action: str, 
+    def log_action(self, user_id: int, action: str,
                   details: dict | str | None = None,
-                  **kwargs) -> int:
-        """Универсальный логгер действий"""
+                  resource_type: str | None = None,
+                  resource_id: str | None = None,
+                  ip_address: str | None = None,
+                  user_agent: str | None = None,
+                  doc_hash: str | None = None,
+                  template_hash: str | None = None,
+                  data_hash: str | None = None) -> int:
+        """Запись действия в аудит с метаданными и хешами"""
+        import json
         
-        # Приводим details к dict
+        # Нормализуем metadata
         if details is None:
             metadata = {}
         elif isinstance(details, str):
             metadata = {"note": details}
         else:
-            metadata = dict(details)  # копируем, на случай mutable
+            metadata = dict(details)
         
-        metadata_json = json.dumps(metadata, ensure_ascii=False)
+        metadata_json = json.dumps(metadata, ensure_ascii=False, separators=(',', ':'))
         
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -76,14 +83,14 @@ class AuditDatabase:
             """, (
                 user_id,
                 action,
-                kwargs.get("resource_type"),
-                kwargs.get("resource_id"),
-                kwargs.get("ip_address"),
-                kwargs.get("user_agent"),
-                metadata_json,  # ← точно определена
-                kwargs.get("doc_hash"),
-                kwargs.get("template_hash"),
-                kwargs.get("data_hash")
+                resource_type,
+                resource_id,
+                ip_address,
+                user_agent,
+                metadata_json,
+                doc_hash,
+                template_hash,
+                data_hash
             ))
             return cursor.lastrowid
 

@@ -216,7 +216,28 @@ async def generate_and_send_document(message: Message, state: FSMContext, doc_ty
         # Показываем сообщение о генерации
         await message.answer("🔄 *Генерируем документ...*", parse_mode="Markdown")
         
-        # Временно отключаем аудит до полного исправления
+        # === Аудит: ВКЛЮЧЕН (полная версия) ===
+        from infrastructure.database.audit_db import audit_db
+        import hashlib
+
+        # Генерируем хеши
+        data_str = str(sorted(data.items()))
+        doc_hash = hashlib.sha256(data_str.encode()).hexdigest()[:16]
+        template_hash = audit_db.get_template_hash(doc_type) or "fallback_hash"
+
+        audit_id = audit_db.log_action(
+            user_id=message.from_user.id,
+            action=f"generate_{doc_type}",
+            details={
+                "title": data.get("title", "Без названия"),
+                "type": doc_type,
+                "fields": len(data)
+            },
+            resource_type="document",
+            doc_hash=doc_hash,
+            template_hash=template_hash
+        )
+        logger.info(f"✅ Аудит ID={audit_id} сохранён")
         logger.info(f"📝 Создание документа '{doc_type}' для пользователя {message.from_user.id}")
         
         # Создаем простой текстовый документ (временное решение)
